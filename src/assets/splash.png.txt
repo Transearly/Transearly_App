@@ -1,0 +1,2 @@
+# Placeholder for splash screen
+# In production, replace with actual splash image
