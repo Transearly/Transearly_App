@@ -8,6 +8,7 @@ import SentenceChallengeScreen from '../screens/SentenceChallengeScreen';
 import TranslationResultScreen from '../screens/TranslationResultScreen';
 import TextTranslatorScreen from '../screens/TextTranslatorScreen';
 import CameraTranslateScreen from '../screens/CameraTranslateScreen';
+import FileUploadScreen from '../screens/FileUploadScreen';
 
 const Stack = createStackNavigator();
 
@@ -15,7 +16,7 @@ export default function AppNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName="VoiceRecording"
+        initialRouteName="TextTranslator"
         screenOptions={{
           headerShown: false,
           cardStyle: { backgroundColor: 'transparent' },
@@ -26,6 +27,14 @@ export default function AppNavigator() {
           }),
         }}
       >
+        <Stack.Screen 
+          name="TextTranslator" 
+          component={TextTranslatorScreen}
+        />
+        <Stack.Screen 
+          name="FileUpload" 
+          component={FileUploadScreen}
+        />
         <Stack.Screen 
           name="VoiceRecording" 
           component={VoiceRecordingScreen} 

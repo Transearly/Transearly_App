@@ -140,6 +140,39 @@ class TranslationAPI {
       return false;
     }
   }
+
+  /**
+   * Upload and translate file
+   * @param {string} fileUri - File URI
+   * @param {string} fileName - Original file name
+   * @param {string} mimeType - File MIME type
+   * @param {string} targetLang - Target language code
+   * @param {string} sourceLang - Source language code
+   * @returns {Promise<Object>} File translation result
+   */
+  async translateFile(fileUri, fileName, mimeType, targetLang, sourceLang = 'auto') {
+    try {
+      const formData = new FormData();
+      formData.append('file', {
+        uri: fileUri,
+        type: mimeType,
+        name: fileName,
+      });
+      formData.append('targetLang', targetLang);
+      formData.append('sourceLang', sourceLang);
+
+      const response = await this.api.post('/file/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error('File translation API error:', error);
+      throw this.handleError(error);
+    }
+  }
 }
 
 export default new TranslationAPI();
