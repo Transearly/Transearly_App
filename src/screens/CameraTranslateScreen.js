@@ -65,31 +65,21 @@ export default function CameraTranslateScreen({ navigation }) {
 
     setIsProcessing(true);
     try {
-      console.log('Translating image:', capturedImage);
-      
-      const result = await TranslationAPI.translateImage(
-        capturedImage,
-        targetLang,
-        'auto'
-      );
-
-      setIsProcessing(false);
-
-      if (result.success) {
+      // Simulate translation - Image API not available yet
+      setTimeout(() => {
+        setIsProcessing(false);
         navigation.navigate('TranslationResult', {
-          originalText: result.data.originalText || 'Image text',
-          translatedText: result.data.translatedText,
-          sourceLang: result.data.sourceLang || 'auto',
-          targetLang: targetLang,
+          originalText: 'Image text (demo)',
+          translatedText: 'Văn bản hình ảnh (demo)',
+          sourceLang: 'en',
+          targetLang: 'vi',
           imageUri: capturedImage,
         });
-      } else {
-        Alert.alert('Translation Failed', result.error || 'Could not translate image');
-      }
+      }, 1500);
     } catch (error) {
       setIsProcessing(false);
       console.error('Translation error:', error);
-      Alert.alert('Error', 'Failed to translate: ' + error.message);
+      Alert.alert('Error', 'Feature coming soon');
     }
   };
 

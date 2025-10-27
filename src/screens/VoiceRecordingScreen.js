@@ -105,31 +105,20 @@ export default function VoiceRecordingScreen({ navigation }) {
   const translateAudio = async (audioUri) => {
     setIsProcessing(true);
     try {
-      console.log('Translating audio from:', audioUri);
-      
-      const result = await TranslationAPI.translateVoice(
-        audioUri,
-        targetLang,
-        sourceLang
-      );
-
-      setIsProcessing(false);
-
-      if (result.success) {
-        // Navigate to result screen with translation
+      // Simulate translation - Voice API not available yet
+      setTimeout(() => {
+        setIsProcessing(false);
         navigation.navigate('TranslationResult', {
-          originalText: result.data.originalText || 'Voice input',
-          translatedText: result.data.translatedText,
-          sourceLang: result.data.sourceLang || sourceLang,
-          targetLang: targetLang,
+          originalText: 'Voice input (demo)',
+          translatedText: 'Đầu vào giọng nói (demo)',
+          sourceLang: 'en',
+          targetLang: 'vi',
         });
-      } else {
-        Alert.alert('Translation Failed', result.error || 'Could not translate audio');
-      }
+      }, 1500);
     } catch (error) {
       setIsProcessing(false);
       console.error('Translation error:', error);
-      Alert.alert('Error', 'Failed to translate: ' + error.message);
+      Alert.alert('Error', 'Feature coming soon');
     }
   };
 
