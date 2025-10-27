@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,46 +6,131 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { Audio } from 'expo-av';
+import TranslationAPI from '../services/api';
 
 const { width } = Dimensions.get('window');
 
 export default function VoiceRecordingScreen({ navigation }) {
   const [isRecording, setIsRecording] = useState(false);
+  const [recording, setRecording] = useState(null);
   const [pulseAnim] = useState(new Animated.Value(1));
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [sourceLang, setSourceLang] = useState('auto');
+  const [targetLang, setTargetLang] = useState('vi');
 
-  const startRecording = () => {
-    setIsRecording(true);
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.3,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
+  useEffect(() => {
+    return () => {
+      if (recording) {
+        recording.stopAndUnloadAsync();
+      }
+    };
+  }, [recording]);
 
-    // Simulate recording for 2 seconds then show result
-    setTimeout(() => {
-      stopRecording();
-    }, 2000);
+  const startRecording = async () => {
+    try {
+      console.log('Requesting permissions..');
+      const permission = await Audio.requestPermissionsAsync();
+      
+      if (!permission.granted) {
+        Alert.alert('Permission Required', 'Please grant microphone permission to record audio');
+        return;
+      }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      console.log('Starting recording..');
+      const { recording: newRecording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      
+      setRecording(newRecording);
+      setIsRecording(true);
+
+      // Start pulse animation
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.3,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
+      console.log('Recording started');
+    } catch (err) {
+      console.error('Failed to start recording', err);
+      Alert.alert('Error', 'Failed to start recording: ' + err.message);
+    }
   };
 
-  const stopRecording = () => {
+  const stopRecording = async () => {
+    if (!recording) return;
+
+    console.log('Stopping recording..');
     setIsRecording(false);
     pulseAnim.setValue(1);
-    // Navigate to result screen after recording
-    setTimeout(() => {
-      navigation.navigate('TranslationResult');
-    }, 500);
+
+    try {
+      await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+      console.log('Recording stopped and stored at', uri);
+      
+      setRecording(null);
+      
+      // Translate the audio
+      if (uri) {
+        await translateAudio(uri);
+      }
+    } catch (err) {
+      console.error('Failed to stop recording', err);
+      Alert.alert('Error', 'Failed to process recording: ' + err.message);
+    }
+  };
+
+  const translateAudio = async (audioUri) => {
+    setIsProcessing(true);
+    try {
+      console.log('Translating audio from:', audioUri);
+      
+      const result = await TranslationAPI.translateVoice(
+        audioUri,
+        targetLang,
+        sourceLang
+      );
+
+      setIsProcessing(false);
+
+      if (result.success) {
+        // Navigate to result screen with translation
+        navigation.navigate('TranslationResult', {
+          originalText: result.data.originalText || 'Voice input',
+          translatedText: result.data.translatedText,
+          sourceLang: result.data.sourceLang || sourceLang,
+          targetLang: targetLang,
+        });
+      } else {
+        Alert.alert('Translation Failed', result.error || 'Could not translate audio');
+      }
+    } catch (error) {
+      setIsProcessing(false);
+      console.error('Translation error:', error);
+      Alert.alert('Error', 'Failed to translate: ' + error.message);
+    }
   };
 
   return (
@@ -54,10 +139,10 @@ export default function VoiceRecordingScreen({ navigation }) {
       style={styles.container}
     >
       <View style={styles.header}>
-        <TouchableOpacity>
-          <Ionicons name="menu" size={28} color="#333" />
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={28} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.title}>Translation</Text>
+        <Text style={styles.title}>Voice Translation</Text>
         <View style={styles.headerIcons}>
           <Ionicons name="diamond-outline" size={24} color="#FFB800" style={styles.icon} />
           <TouchableOpacity>
@@ -68,60 +153,91 @@ export default function VoiceRecordingScreen({ navigation }) {
 
       <View style={styles.languageSelector}>
         <TouchableOpacity style={styles.languageButton}>
-          <Text style={styles.languageText}>Human 👤</Text>
+          <Text style={styles.languageText}>
+            {sourceLang === 'auto' ? 'Auto Detect' : sourceLang.toUpperCase()} 🎤
+          </Text>
           <Ionicons name="chevron-down" size={16} color="#5B67F5" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.swapButton}>
           <Ionicons name="swap-horizontal" size={24} color="#5B67F5" />
         </TouchableOpacity>
+        <TouchableOpacity style={styles.languageButton}>
+          <Text style={styles.languageText}>{targetLang.toUpperCase()} 🔊</Text>
+          <Ionicons name="chevron-down" size={16} color="#5B67F5" />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.recordingArea}>
-        <Animated.View
-          style={[
-            styles.pulseCircle,
-            {
-              transform: [{ scale: isRecording ? pulseAnim : 1 }],
-              opacity: isRecording ? 0.3 : 0,
-            },
-          ]}
-        />
-        <TouchableOpacity
-          style={[
-            styles.recordButton,
-            isRecording && styles.recordingButton,
-          ]}
-          onPress={isRecording ? stopRecording : startRecording}
-        >
-          <Ionicons
-            name={isRecording ? "square" : "mic"}
-            size={40}
-            color="#fff"
-          />
-        </TouchableOpacity>
-        <Text style={styles.instructionText}>
-          {isRecording ? "Recording..." : "Tap And Hold\nTo Record"}
+        {isProcessing ? (
+          <View style={styles.processingContainer}>
+            <ActivityIndicator size="large" color="#5B67F5" />
+            <Text style={styles.processingText}>Processing audio...</Text>
+          </View>
+        ) : (
+          <>
+            <Animated.View
+              style={[
+                styles.pulseCircle,
+                {
+                  transform: [{ scale: isRecording ? pulseAnim : 1 }],
+                  opacity: isRecording ? 0.3 : 0,
+                },
+              ]}
+            />
+            <TouchableOpacity
+              style={[
+                styles.recordButton,
+                isRecording && styles.recordingButton,
+              ]}
+              onPress={isRecording ? stopRecording : startRecording}
+              disabled={isProcessing}
+            >
+              <Ionicons
+                name={isRecording ? "square" : "mic"}
+                size={40}
+                color="#fff"
+              />
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+
+      <View style={styles.instructionArea}>
+        <Text style={styles.instructionTitle}>
+          {isRecording ? 'Recording...' : 'Tap And Hold'}
+        </Text>
+        <Text style={styles.instructionSubtitle}>
+          {isRecording ? 'Release to translate' : 'To Record'}
         </Text>
       </View>
 
       <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="home" size={28} color="#5B67F5" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navItem}
+        <TouchableOpacity 
+          style={styles.navButton}
           onPress={() => navigation.navigate('TranslationDiscovery')}
         >
           <Ionicons name="compass-outline" size={28} color="#999" />
+          <Text style={styles.navText}>Discover</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navItem}
+        <TouchableOpacity 
+          style={[styles.navButton, styles.navButtonActive]}
+        >
+          <Ionicons name="mic" size={28} color="#5B67F5" />
+          <Text style={[styles.navText, styles.navTextActive]}>Voice</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.navButton}
           onPress={() => navigation.navigate('TextTranslator')}
         >
           <Ionicons name="text-outline" size={28} color="#999" />
+          <Text style={styles.navText}>Text</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="person-outline" size={28} color="#999" />
+        <TouchableOpacity 
+          style={styles.navButton}
+          onPress={() => navigation.navigate('CameraTranslate')}
+        >
+          <Ionicons name="camera-outline" size={28} color="#999" />
+          <Text style={styles.navText}>Camera</Text>
         </TouchableOpacity>
       </View>
     </LinearGradient>
@@ -131,18 +247,18 @@ export default function VoiceRecordingScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 50,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    marginBottom: 30,
+    paddingTop: 60,
+    paddingBottom: 20,
   },
   title: {
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: '#333',
   },
   headerIcons: {
@@ -154,37 +270,53 @@ const styles = StyleSheet.create({
   },
   languageSelector: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 50,
+    paddingHorizontal: 30,
+    marginTop: 20,
   },
   languageButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    paddingVertical: 12,
     paddingHorizontal: 20,
+    paddingVertical: 12,
     borderRadius: 25,
-    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    elevation: 3,
   },
   languageText: {
     fontSize: 16,
-    color: '#333',
+    color: '#5B67F5',
+    fontWeight: '600',
     marginRight: 8,
   },
   swapButton: {
-    marginLeft: 20,
-    padding: 10,
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: 50,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   recordingArea: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 40,
+  },
+  processingContainer: {
+    alignItems: 'center',
+  },
+  processingText: {
+    marginTop: 20,
+    fontSize: 16,
+    color: '#666',
   },
   pulseCircle: {
     position: 'absolute',
@@ -194,43 +326,63 @@ const styles = StyleSheet.create({
     backgroundColor: '#5B67F5',
   },
   recordButton: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     backgroundColor: '#5B67F5',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 5,
     shadowColor: '#5B67F5',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
+    elevation: 8,
   },
   recordingButton: {
-    backgroundColor: '#FF5B67',
+    backgroundColor: '#FF4458',
+    shadowColor: '#FF4458',
   },
-  instructionText: {
-    marginTop: 30,
+  instructionArea: {
+    alignItems: 'center',
+    marginBottom: 60,
+  },
+  instructionTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  instructionSubtitle: {
     fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 24,
+    color: '#999',
   },
   bottomNav: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingVertical: 15,
-    paddingHorizontal: 20,
+    paddingBottom: 30,
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    elevation: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
+    elevation: 10,
   },
-  navItem: {
-    padding: 10,
+  navButton: {
+    alignItems: 'center',
+  },
+  navButtonActive: {
+    // Active state
+  },
+  navText: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
+  },
+  navTextActive: {
+    color: '#5B67F5',
+    fontWeight: '600',
   },
 });
