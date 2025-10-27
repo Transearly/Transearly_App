@@ -52,10 +52,6 @@ export default function AppNavigator() {
           component={TranslationResultScreen} 
         />
         <Stack.Screen
-          name="TextTranslator"
-          component={TextTranslatorScreen}
-        />
-        <Stack.Screen
           name="CameraTranslate"
           component={CameraTranslateScreen}
         />
