@@ -8,25 +8,18 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { Camera } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import TranslationAPI from '../services/api';
 
 export default function CameraTranslateScreen({ navigation }) {
-  const [hasPermission, setHasPermission] = useState(null);
-  const [type, setType] = useState(Camera.Constants.Type.back);
+  const [permission, requestPermission] = useCameraPermissions();
+  const [facing, setFacing] = useState('back');
   const [capturedImage, setCapturedImage] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [targetLang, setTargetLang] = useState('vi');
   const cameraRef = useRef(null);
-
-  useEffect(() => {
-    (async () => {
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      setHasPermission(status === 'granted');
-    })();
-  }, []);
 
   const takePicture = async () => {
     if (cameraRef.current) {
@@ -87,17 +80,21 @@ export default function CameraTranslateScreen({ navigation }) {
     setCapturedImage(null);
   };
 
-  if (hasPermission === null) {
+  function toggleCameraFacing() {
+    setFacing(current => (current === 'back' ? 'front' : 'back'));
+  }
+
+  if (!permission) {
     return <View style={styles.container}><Text>Requesting camera permission...</Text></View>;
   }
 
-  if (hasPermission === false) {
+  if (!permission.granted) {
     return (
       <View style={styles.container}>
         <Text style={styles.permissionText}>No access to camera</Text>
         <TouchableOpacity 
           style={styles.button}
-          onPress={() => Camera.requestCameraPermissionsAsync()}
+          onPress={requestPermission}
         >
           <Text style={styles.buttonText}>Grant Permission</Text>
         </TouchableOpacity>
@@ -146,19 +143,13 @@ export default function CameraTranslateScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Camera style={styles.camera} type={type} ref={cameraRef}>
+      <CameraView style={styles.camera} facing={facing} ref={cameraRef}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Ionicons name="close" size={32} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Live Text Capture</Text>
-          <TouchableOpacity onPress={() => 
-            setType(
-              type === Camera.Constants.Type.back
-                ? Camera.Constants.Type.front
-                : Camera.Constants.Type.back
-            )
-          }>
+          <TouchableOpacity onPress={toggleCameraFacing}>
             <Ionicons name="camera-reverse" size={32} color="#fff" />
           </TouchableOpacity>
         </View>
@@ -188,7 +179,7 @@ export default function CameraTranslateScreen({ navigation }) {
           
           <View style={{ width: 60 }} />
         </View>
-      </Camera>
+      </CameraView>
     </View>
   );
 }
