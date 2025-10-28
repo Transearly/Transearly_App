@@ -11,7 +11,7 @@ import {
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import TranslationAPI from '../services/api';
+import translationAPI from '../services/api';
 
 export default function CameraTranslateScreen({ navigation }) {
   const [permission, requestPermission] = useCameraPermissions();
@@ -128,8 +128,8 @@ export default function CameraTranslateScreen({ navigation }) {
               <Ionicons name="camera-outline" size={32} color="#fff" />
               <Text style={styles.actionText}>Retake</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.actionButton, styles.translateButton]} 
+            <TouchableOpacity
+              style={[styles.actionButton, styles.translateButton]}
               onPress={translateImage}
             >
               <Ionicons name="language-outline" size={32} color="#fff" />
@@ -137,6 +137,29 @@ export default function CameraTranslateScreen({ navigation }) {
             </TouchableOpacity>
           </View>
         )}
+
+        <View style={styles.bottomNav}>
+          <TouchableOpacity
+            style={styles.navButton}
+            onPress={() => navigation.navigate('TextTranslator')}
+          >
+            <Ionicons name="home-outline" size={28} color="#5B67F5" />
+            <Text style={[styles.navText, styles.navTextActive]}>Home</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.navButton}
+            onPress={() => navigation.navigate('VoiceRecording')}
+          >
+            <Ionicons name="mic-outline" size={28} color="#999" />
+            <Text style={styles.navText}>Voice</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.navButton, styles.navButtonActive]}
+          >
+            <Ionicons name="camera" size={28} color="#5B67F5" />
+            <Text style={[styles.navText, styles.navTextActive]}>Camera</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -146,18 +169,10 @@ export default function CameraTranslateScreen({ navigation }) {
       <CameraView style={styles.camera} facing={facing} ref={cameraRef}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="close" size={32} color="#fff" />
+            <Ionicons name="arrow-back" size={28} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Live Text Capture</Text>
-          <TouchableOpacity onPress={toggleCameraFacing}>
-            <Ionicons name="camera-reverse" size={32} color="#fff" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.languageBar}>
-          <View style={styles.languageBadge}>
-            <Text style={styles.languageText}>Auto → {targetLang.toUpperCase()}</Text>
-          </View>
+          <View style={{ width: 28 }} />
         </View>
 
         <View style={styles.scanFrame}>
@@ -165,21 +180,44 @@ export default function CameraTranslateScreen({ navigation }) {
           <View style={[styles.corner, styles.topRight]} />
           <View style={[styles.corner, styles.bottomLeft]} />
           <View style={[styles.corner, styles.bottomRight]} />
-          <Text style={styles.scanText}>Point camera at text</Text>
+          <Text style={styles.scanText}>Position text within frame</Text>
         </View>
 
         <View style={styles.controls}>
           <TouchableOpacity style={styles.galleryButton} onPress={pickImage}>
-            <Ionicons name="images-outline" size={28} color="#fff" />
+            <Ionicons name="image" size={28} color="#fff" />
           </TouchableOpacity>
-          
           <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
             <View style={styles.captureButtonInner} />
           </TouchableOpacity>
-          
-          <View style={{ width: 60 }} />
+          <TouchableOpacity style={styles.galleryButton} onPress={toggleCameraFacing}>
+            <Ionicons name="camera-reverse" size={28} color="#fff" />
+          </TouchableOpacity>
         </View>
       </CameraView>
+
+      <View style={styles.bottomNav}>
+        <TouchableOpacity
+          style={styles.navButton}
+          onPress={() => navigation.navigate('TextTranslator')}
+        >
+          <Ionicons name="home-outline" size={28} color="#5B67F5" />
+          <Text style={[styles.navText, styles.navTextActive]}>Home</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.navButton}
+          onPress={() => navigation.navigate('VoiceRecording')}
+        >
+          <Ionicons name="mic-outline" size={28} color="#999" />
+          <Text style={styles.navText}>Voice</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.navButton, styles.navButtonActive]}
+        >
+          <Ionicons name="camera" size={28} color="#5B67F5" />
+          <Text style={[styles.navText, styles.navTextActive]}>Camera</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -350,6 +388,35 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#fff',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  bottomNav: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 15,
+    paddingBottom: 30,
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  navButton: {
+    alignItems: 'center',
+  },
+  navButtonActive: {
+    // Active state
+  },
+  navText: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
+  },
+  navTextActive: {
+    color: '#5B67F5',
     fontWeight: '600',
   },
 });

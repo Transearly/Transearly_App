@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,9 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
-import TranslationAPI from '../services/api';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import translationAPI from '../services/api';
 
 const SUPPORTED_TYPES = [
   { ext: '.txt', icon: 'document-text', name: 'Text' },
@@ -24,68 +26,178 @@ const SUPPORTED_TYPES = [
 export default function FileUploadScreen({ navigation }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [targetLang, setTargetLang] = useState('vi');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [targetLang, setTargetLang] = useState('English');
+  const [progress, setProgress] = useState('');
+  const api = translationAPI;
 
-  const pickDocument = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: [
-          'text/plain',
-          'application/pdf',
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        ],
-        copyToCacheDirectory: true,
-      });
-
-      if (result.type === 'success') {
-        setSelectedFile({
-          name: result.name,
-          uri: result.uri,
-          size: result.size,
-          mimeType: result.mimeType,
-        });
+  useEffect(() => {
+    // Don't initialize WebSocket on component mount
+    // It will be initialized when user actually uploads a file
+    return () => {
+      // Clean up on unmount
+      if (api.socket) {
+        api.removeTranslationListeners();
+        api.disconnect();
       }
+    };
+  }, []);
+
+  const initializeWebSocket = async () => {
+    try {
+      console.log('Attempting to initialize WebSocket...');
+      await api.initializeWebSocket();
+      setupWebSocketListeners();
+      console.log('WebSocket initialized successfully');
+      return true;
     } catch (error) {
-      console.error('Error picking document:', error);
-      Alert.alert('Error', 'Failed to pick document');
+      console.error('WebSocket connection error:', error);
+      console.error('Error message:', error.message);
+      
+      // Don't show error - we'll use fallback ID
+      console.log('Will proceed with fallback ID for file upload');
+      return true; // Always return true so upload can proceed
     }
   };
 
-  const uploadAndTranslate = async () => {
-    if (!selectedFile) {
-      Alert.alert('Error', 'Please select a file first');
-      return;
-    }
+  const setupWebSocketListeners = () => {
+    console.log('Setting up WebSocket listeners...');
+    api.addTranslationListeners(
+      async (data) => {
+        // Handle translation complete
+        console.log('Translation complete event received:', data);
+        setIsProcessing(false);
+        setProgress('Translation completed!');
+        
+        try {
+          console.log('Downloading file:', data.fileName);
+          const blob = await api.downloadTranslatedFile(data.fileName);
+          const fileUri = `${FileSystem.documentDirectory}${data.fileName}`;
+          
+          // Convert blob to base64 for React Native
+          const reader = new FileReader();
+          reader.onloadend = async () => {
+            const base64data = reader.result.split(',')[1];
+            
+            await FileSystem.writeAsStringAsync(fileUri, base64data, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
 
-    setIsUploading(true);
+            if (await Sharing.isAvailableAsync()) {
+              await Sharing.shareAsync(fileUri, {
+                mimeType: 'application/octet-stream',
+                dialogTitle: 'Download translated file',
+              });
+            } else {
+              Alert.alert('Success', 'File has been saved to your device');
+            }
+          };
+          reader.readAsDataURL(blob);
+        } catch (error) {
+          console.error('Download error:', error);
+          Alert.alert('Download Error', 'Failed to download translated file');
+        }
+      },
+      (error) => {
+        // Handle translation failed
+        console.log('Translation failed event received:', error);
+        setIsProcessing(false);
+        setProgress('');
+        Alert.alert('Translation Failed', error.reason || 'An error occurred during translation');
+      }
+    );
+  };
+
+  const pickDocument = async () => {
+    console.log('pickDocument called');
     try {
-      const result = await TranslationAPI.translateFile(
-        selectedFile.uri,
-        selectedFile.name,
-        selectedFile.mimeType,
+      console.log('Opening document picker...');
+      
+      // Try without specifying types first to see if it works
+      const result = await DocumentPicker.getDocumentAsync({
+        copyToCacheDirectory: true,
+      });
+
+      console.log('Document picker result:', result);
+      console.log('Result canceled:', result.canceled);
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const fileInfo = {
+          name: asset.name,
+          uri: asset.uri,
+          size: asset.size,
+          type: asset.mimeType,
+        };
+        console.log('File selected successfully:', fileInfo);
+        setSelectedFile(fileInfo);
+        console.log('selectedFile state should be updated');
+      } else if (result.canceled) {
+        console.log('File selection cancelled');
+      } else {
+        console.log('Unexpected result structure:', result);
+      }
+    } catch (error) {
+      console.error('Document picker error:', error);
+      Alert.alert('Error', 'Failed to pick document: ' + error.message);
+    }
+  };
+
+  const handleUpload = async (fileInfo) => {
+    if (!fileInfo) return;
+
+    try {
+      setIsUploading(true);
+      setProgress('Connecting to translation service...');
+
+      // Try to initialize WebSocket connection (but don't wait for success)
+      console.log('Attempting WebSocket connection (non-blocking)...');
+      initializeWebSocket().catch(error => {
+        console.error('WebSocket initialization failed:', error);
+      });
+
+      setProgress('Uploading file...');
+
+      // Create a proper file object for FormData
+      const formFile = {
+        uri: fileInfo.uri,
+        type: fileInfo.type,
+        name: fileInfo.name,
+      };
+
+      console.log('Uploading file with details:', {
+        name: formFile.name,
+        type: formFile.type,
+        targetLang: targetLang,
+        socketId: api.socketId
+      });
+
+      const response = await api.uploadFileForTranslation(
+        formFile,
         targetLang,
-        'auto'
+        false // isUserPremium
       );
 
       setIsUploading(false);
+      setIsProcessing(true);
+      setProgress('Processing translation...');
 
-      if (result.success) {
-        navigation.navigate('TranslationResult', {
-          originalText: `File: ${selectedFile.name}`,
-          translatedText: result.data.translatedText,
-          sourceLang: result.data.sourceLang || 'auto',
-          targetLang: targetLang,
-          mode: 'file',
-        });
-      } else {
-        Alert.alert('Translation Failed', result.error || 'Could not translate file');
-      }
+      console.log('Upload successful:', response);
+      console.log('Job ID:', response.data?.jobId);
     } catch (error) {
-      setIsUploading(false);
       console.error('Upload error:', error);
-      Alert.alert('Error', 'Failed to upload file: ' + error.message);
+      setIsUploading(false);
+      setIsProcessing(false);
+      setProgress('');
+      
+      // Provide more specific error messages
+      if (error.message && error.message.includes('Network Error')) {
+        Alert.alert('Network Error', 'Please check your internet connection and try again.');
+      } else if (error.message && error.message.includes('timeout')) {
+        Alert.alert('Timeout Error', 'Connection timed out. Please try again.');
+      } else {
+        Alert.alert('Upload Error', error.message || 'Failed to upload file');
+      }
     }
   };
 
@@ -125,25 +237,78 @@ export default function FileUploadScreen({ navigation }) {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Target Language</Text>
+          <View style={styles.languageButtons}>
+            <TouchableOpacity
+              style={[
+                styles.languageButton,
+                targetLang === 'English' && styles.languageButtonActive,
+              ]}
+              onPress={() => setTargetLang('English')}
+              disabled={isUploading || isProcessing}
+            >
+              <Text
+                style={[
+                  styles.languageButtonText,
+                  targetLang === 'English' && styles.languageButtonTextActive,
+                ]}
+              >
+                English
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.languageButton,
+                targetLang === 'Vietnamese' && styles.languageButtonActive,
+              ]}
+              onPress={() => setTargetLang('Vietnamese')}
+              disabled={isUploading || isProcessing}
+            >
+              <Text
+                style={[
+                  styles.languageButtonText,
+                  targetLang === 'Vietnamese' && styles.languageButtonTextActive,
+                ]}
+              >
+                Vietnamese
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Select File</Text>
           {selectedFile ? (
-            <View style={styles.selectedFileCard}>
-              <View style={styles.fileInfo}>
-                <Ionicons name="document" size={40} color="#5B67F5" />
-                <View style={styles.fileDetails}>
-                  <Text style={styles.fileName}>{selectedFile.name}</Text>
-                  <Text style={styles.fileSize}>{formatFileSize(selectedFile.size)}</Text>
+            <View>
+              <View style={styles.selectedFileCard}>
+                <View style={styles.fileInfo}>
+                  <Ionicons name="document" size={40} color="#5B67F5" />
+                  <View style={styles.fileDetails}>
+                    <Text style={styles.fileName}>{selectedFile.name}</Text>
+                    <Text style={styles.fileSize}>{formatFileSize(selectedFile.size)}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setSelectedFile(null)}>
+                    <Ionicons name="close-circle" size={28} color="#999" />
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity onPress={() => setSelectedFile(null)}>
-                  <Ionicons name="close-circle" size={28} color="#999" />
-                </TouchableOpacity>
               </View>
+              <TouchableOpacity
+                style={styles.uploadButton}
+                onPress={() => handleUpload(selectedFile)}
+                disabled={isUploading || isProcessing}
+              >
+                <Ionicons name="cloud-upload" size={24} color="#fff" />
+                <Text style={styles.uploadButtonText}>Upload & Translate</Text>
+              </TouchableOpacity>
             </View>
           ) : (
-            <TouchableOpacity 
-              style={styles.pickButton} 
-              onPress={pickDocument}
-              disabled={isUploading}
+            <TouchableOpacity
+              style={styles.pickButton}
+              onPress={() => {
+                console.log('Choose File button pressed');
+                pickDocument();
+              }}
+              disabled={isUploading || isProcessing}
             >
               <Ionicons name="cloud-upload-outline" size={48} color="#5B67F5" />
               <Text style={styles.pickButtonText}>Choose File</Text>
@@ -152,44 +317,21 @@ export default function FileUploadScreen({ navigation }) {
           )}
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Target Language</Text>
-          <View style={styles.languageSelector}>
-            {['vi', 'en', 'ja', 'zh', 'ko', 'fr', 'de', 'es'].map((lang) => (
-              <TouchableOpacity
-                key={lang}
-                style={[
-                  styles.languageChip,
-                  targetLang === lang && styles.languageChipActive
-                ]}
-                onPress={() => setTargetLang(lang)}
-              >
-                <Text style={[
-                  styles.languageChipText,
-                  targetLang === lang && styles.languageChipTextActive
-                ]}>
-                  {lang.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {selectedFile && (
-          <TouchableOpacity
-            style={[styles.translateButton, isUploading && styles.translateButtonDisabled]}
-            onPress={uploadAndTranslate}
-            disabled={isUploading}
-          >
-            {isUploading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="language" size={24} color="#fff" />
-                <Text style={styles.translateButtonText}>Translate File</Text>
-              </>
+        {(isUploading || isProcessing) && (
+          <View style={styles.progressContainer}>
+            <ActivityIndicator size="large" color="#5B67F5" />
+            <Text style={styles.progressText}>{progress}</Text>
+            {isUploading && (
+              <Text style={styles.progressSubtext}>
+                Please wait while we connect to the translation service...
+              </Text>
             )}
-          </TouchableOpacity>
+            {isProcessing && (
+              <Text style={styles.progressSubtext}>
+                Your file is being processed. This may take a few minutes.
+              </Text>
+            )}
+          </View>
         )}
 
         <View style={styles.infoBox}>
@@ -201,21 +343,21 @@ export default function FileUploadScreen({ navigation }) {
       </ScrollView>
 
       <View style={styles.bottomNav}>
-        <TouchableOpacity 
-          style={styles.navButton}
-          onPress={() => navigation.navigate('TranslationDiscovery')}
-        >
-          <Ionicons name="compass-outline" size={28} color="#999" />
-          <Text style={styles.navText}>Discover</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.navButton}
+        <TouchableOpacity
+          style={[styles.navButton, styles.navButtonActive]}
           onPress={() => navigation.navigate('TextTranslator')}
         >
-          <Ionicons name="text-outline" size={28} color="#999" />
-          <Text style={styles.navText}>Text</Text>
+          <Ionicons name="home-outline" size={28} color="#5B67F5" />
+          <Text style={[styles.navText, styles.navTextActive]}>Home</Text>
         </TouchableOpacity>
-        <TouchableOpacity 
+        <TouchableOpacity
+          style={styles.navButton}
+          onPress={() => navigation.navigate('CameraTranslate')}
+        >
+          <Ionicons name="camera-outline" size={28} color="#999" />
+          <Text style={styles.navText}>Camera</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           style={[styles.navButton, styles.navButtonActive]}
         >
           <Ionicons name="document" size={28} color="#5B67F5" />
@@ -291,6 +433,31 @@ const styles = StyleSheet.create({
     color: '#999',
     marginTop: 2,
   },
+  languageButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  languageButton: {
+    flex: 1,
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 15,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#eee',
+  },
+  languageButtonActive: {
+    borderColor: '#5B67F5',
+    backgroundColor: '#5B67F5',
+  },
+  languageButtonText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '600',
+  },
+  languageButtonTextActive: {
+    color: '#fff',
+  },
   pickButton: {
     backgroundColor: '#fff',
     padding: 40,
@@ -339,48 +506,23 @@ const styles = StyleSheet.create({
     color: '#999',
     marginTop: 4,
   },
-  languageSelector: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  languageChip: {
+  progressContainer: {
     backgroundColor: '#fff',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  languageChipActive: {
-    backgroundColor: '#5B67F5',
-    borderColor: '#5B67F5',
-  },
-  languageChipText: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '600',
-  },
-  languageChipTextActive: {
-    color: '#fff',
-  },
-  translateButton: {
-    backgroundColor: '#5B67F5',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 18,
+    padding: 20,
     borderRadius: 15,
+    alignItems: 'center',
     marginBottom: 20,
-    gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  translateButtonDisabled: {
-    opacity: 0.6,
-  },
-  translateButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+  progressText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#5B67F5',
+    fontWeight: '600',
   },
   infoBox: {
     flexDirection: 'row',
@@ -422,5 +564,33 @@ const styles = StyleSheet.create({
   navTextActive: {
     color: '#5B67F5',
     fontWeight: '600',
+  },
+  progressSubtext: {
+    fontSize: 13,
+    color: '#999',
+    marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  uploadButton: {
+    backgroundColor: '#5B67F5',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    marginTop: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  uploadButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 10,
   },
 });

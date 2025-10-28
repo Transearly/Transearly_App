@@ -1,107 +1,208 @@
 import axios from 'axios';
-import { API_BASE_URL } from '../config/api.config';
+import io from 'socket.io-client';
+import { API_BASE_URL, WS_BASE_URL, API_ENDPOINTS, WS_EVENTS } from '../config/api.config';
+import { Platform } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
+
+// Polyfill for WebSocket in React Native environment
+if (typeof WebSocket !== 'undefined') {
+  global.WebSocket = WebSocket;
+}
 
 class TranslationAPI {
   constructor() {
     this.api = axios.create({
       baseURL: API_BASE_URL,
       timeout: 30000,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    });
+    this.socket = null;
+    this.socketId = null;
+  }
+
+  /**
+   * Initialize WebSocket connection
+   * @returns {Promise<string>} Socket ID for connection
+   */
+  initializeWebSocket() {
+    if (this.socket && this.socketId) {
+      console.log('WebSocket already connected with ID:', this.socketId);
+      return this.socketId;
+    }
+
+    console.log('Initializing WebSocket connection to:', WS_BASE_URL);
+
+    return new Promise((resolve, reject) => {
+      // Check network connectivity
+      NetInfo.fetch().then(networkState => {
+        console.log('Network state:', networkState);
+        
+        if (networkState.isConnected) {
+          // Try WebSocket connection if network is available
+          try {
+            this.socket = io(WS_BASE_URL, {
+              timeout: 5000,
+              forceNew: true,
+              transports: Platform.OS === 'web' ? ['websocket'] : ['websocket', 'polling'],
+            });
+
+            this.socket.on('connect', () => {
+              this.socketId = this.socket.id;
+              console.log('WebSocket connected with ID:', this.socketId);
+              resolve(this.socketId);
+            });
+
+            this.socket.on('connect_error', (error) => {
+              console.error('WebSocket connection error:', error);
+              reject(error);
+            });
+
+            this.socket.on('disconnect', (reason) => {
+              console.log('WebSocket disconnected:', reason);
+              this.socket = null;
+              this.socketId = null;
+            });
+          } catch (error) {
+            console.error('WebSocket initialization failed:', error);
+          }
+        } else {
+          // Use fallback ID if no network
+          console.log('No network connection, using fallback ID');
+          this.socketId = 'fallback-' + Date.now();
+          resolve(this.socketId);
+        }
+      });
     });
   }
 
   /**
-   * Translate text from source language to target language
-   * @param {string} text - Text to translate
-   * @param {string} sourceLang - Source language code (e.g., 'en', 'es', 'auto')
-   * @param {string} targetLang - Target language code
-   * @returns {Promise<Object>} Translation result
+   * Add translation status listeners
+   * @param {Function} onComplete - Callback for translation complete
+   * @param {Function} onFailed - Callback for translation failed
    */
-  async translateText(text, sourceLang = 'auto', targetLang) {
+  addTranslationListeners(onComplete, onFailed) {
+    if (!this.socket) {
+      console.log('WebSocket not initialized, but proceeding with listeners setup');
+      return;
+    }
+
+    console.log('Adding translation listeners for events:', WS_EVENTS);
+
+    // Store listeners so we can remove them later
+    this.onComplete = onComplete;
+    this.onFailed = onFailed;
+
+    this.socket.on(WS_EVENTS.TRANSLATION_COMPLETE, (data) => {
+      console.log('Translation complete event received:', data);
+      if (this.onComplete) this.onComplete(data);
+    });
+    
+    this.socket.on(WS_EVENTS.TRANSLATION_FAILED, (error) => {
+      console.log('Translation failed event received:', error);
+      if (this.onFailed) this.onFailed(error);
+    });
+  }
+
+  /**
+   * Remove translation status listeners
+   */
+  removeTranslationListeners() {
+    if (this.socket) {
+      console.log('Removing translation listeners');
+      this.socket.off(WS_EVENTS.TRANSLATION_COMPLETE);
+      this.socket.off(WS_EVENTS.TRANSLATION_FAILED);
+      
+      // Clear stored listeners
+      this.onComplete = null;
+      this.onFailed = null;
+    }
+  }
+
+  /**
+   * Disconnect WebSocket
+   */
+  disconnect() {
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
+      this.socketId = null;
+    }
+  }
+
+  /**
+   * Upload a file for translation
+   * @param {Object} file - File object to upload
+   * @param {string} targetLanguage - Target language for translation
+   * @param {boolean} isUserPremium - Whether the user is premium
+   * @returns {Promise<Object>} Upload result with jobId
+   */
+  async uploadFileForTranslation(file, targetLanguage = 'English', isUserPremium = false) {
     try {
-      const response = await this.api.post('/translate/text', {
-        text,
-        sourceLang,
-        targetLang,
+      // Check if we have a socketId (either from WebSocket or fallback)
+      if (!this.socketId) {
+        console.log('No socketId available, generating fallback');
+        this.socketId = 'fallback-' + Date.now();
+      }
+
+      // Create a proper file object for React Native
+      const fileObj = {
+        uri: file.uri,
+        type: file.type,
+        name: file.name,
+        size: file.size,
+      };
+
+      const formData = new FormData();
+      formData.append('file', fileObj);
+      formData.append('targetLanguage', targetLanguage);
+      formData.append('isUserPremium', isUserPremium.toString());
+      formData.append('socketId', this.socketId);
+
+      console.log('Preparing file upload with socketId:', this.socketId);
+      console.log('File object for FormData:', fileObj);
+
+      const response = await this.api.post(API_ENDPOINTS.UPLOAD_FILE, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 30000, // 30 second timeout for upload
       });
+
+      console.log('Upload response status:', response.status);
+      console.log('Upload response data:', response.data);
       return response.data;
     } catch (error) {
-      console.error('Translation API error:', error);
+      console.error('File Upload API error:', error);
+      if (error.response) {
+        console.error('Error response:', error.response.data);
+        console.error('Error status:', error.response.status);
+      }
       throw this.handleError(error);
     }
   }
 
   /**
-   * Translate voice (audio to text to translation)
-   * @param {string} audioData - Base64 encoded audio data
-   * @param {string} sourceLang - Source language code
-   * @param {string} targetLang - Target language code
-   * @returns {Promise<Object>} Voice translation result
+   * Download a translated file
+   * @param {string} fileName - Name of the file to download
+   * @returns {Promise<Blob>} File blob
    */
-  async translateVoice(audioData, sourceLang = 'auto', targetLang) {
+  async downloadTranslatedFile(fileName) {
     try {
-      const response = await this.api.post('/translate/voice', {
-        audioData,
-        sourceLang,
-        targetLang,
+      console.log('Downloading file:', fileName);
+      const downloadUrl = API_ENDPOINTS.DOWNLOAD_FILE(fileName);
+      console.log('Download URL:', API_BASE_URL + downloadUrl);
+      
+      const response = await this.api.get(downloadUrl, {
+        responseType: 'blob',
       });
+      
+      console.log('Download response received, blob size:', response.data.size);
       return response.data;
     } catch (error) {
-      console.error('Voice translation API error:', error);
-      throw this.handleError(error);
-    }
-  }
-
-  /**
-   * Translate image (OCR + translation)
-   * @param {string} imageData - Base64 encoded image data
-   * @param {string} sourceLang - Source language code
-   * @param {string} targetLang - Target language code
-   * @returns {Promise<Object>} Image translation result
-   */
-  async translateImage(imageData, sourceLang = 'auto', targetLang) {
-    try {
-      const response = await this.api.post('/translate/image', {
-        imageData,
-        sourceLang,
-        targetLang,
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Image translation API error:', error);
-      throw this.handleError(error);
-    }
-  }
-
-  /**
-   * Get list of supported languages
-   * @returns {Promise<Array>} List of supported languages
-   */
-  async getSupportedLanguages() {
-    try {
-      const response = await this.api.get('/translate/languages');
-      return response.data;
-    } catch (error) {
-      console.error('Get languages API error:', error);
-      throw this.handleError(error);
-    }
-  }
-
-  /**
-   * Detect language from text
-   * @param {string} text - Text to analyze
-   * @returns {Promise<Object>} Detection result
-   */
-  async detectLanguage(text) {
-    try {
-      const response = await this.api.post('/translate/detect', {
-        text,
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Language detection API error:', error);
+      console.error('File Download API error:', error);
+      if (error.response) {
+        console.error('Error response:', error.response.data);
+        console.error('Error status:', error.response.status);
+      }
       throw this.handleError(error);
     }
   }
@@ -126,53 +227,36 @@ class TranslationAPI {
   }
 
   /**
-   * Check API health
-   * @returns {Promise<boolean>} API health status
+   * Translate text from one language to another using OpenAI API
+   * @param {string} text - Text to translate
+   * @param {string} fromLang - Source language code
+   * @param {string} toLang - Target language code
+   * @returns {Promise<Object>} Translation result
    */
-  async checkHealth() {
+  async translateText(text, fromLang = 'auto', toLang = 'en') {
     try {
-      const response = await axios.get(`${API_BASE_URL.replace('/api', '')}/health`, {
-        timeout: 5000,
+      const response = await this.api.post(API_ENDPOINTS.TRANSLATE_TEXT, {
+        text,
+        sourceLanguage: fromLang,
+        targetLanguage: toLang
       });
-      return response.data.status === 'ok';
-    } catch (error) {
-      console.error('Health check failed:', error);
-      return false;
-    }
-  }
 
-  /**
-   * Upload and translate file
-   * @param {string} fileUri - File URI
-   * @param {string} fileName - Original file name
-   * @param {string} mimeType - File MIME type
-   * @param {string} targetLang - Target language code
-   * @param {string} sourceLang - Source language code
-   * @returns {Promise<Object>} File translation result
-   */
-  async translateFile(fileUri, fileName, mimeType, targetLang, sourceLang = 'auto') {
-    try {
-      const formData = new FormData();
-      formData.append('file', {
-        uri: fileUri,
-        type: mimeType,
-        name: fileName,
-      });
-      formData.append('targetLang', targetLang);
-      formData.append('sourceLang', sourceLang);
+      if (!response.data) {
+        throw new Error('No response data received');
+      }
 
-      const response = await this.api.post('/file/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      
-      return response.data;
+      return {
+        translatedText: response.data.translatedText,
+        sourceLang: fromLang,
+        targetLang: toLang
+      };
     } catch (error) {
-      console.error('File translation API error:', error);
+      console.error('Text Translation API error:', error);
       throw this.handleError(error);
     }
   }
 }
 
-export default new TranslationAPI();
+// Create and export a singleton instance
+const translationAPI = new TranslationAPI();
+export default translationAPI;

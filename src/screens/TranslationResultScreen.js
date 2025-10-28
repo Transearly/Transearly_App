@@ -12,7 +12,7 @@ import {
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import TranslationAPI from '../services/api';
+import translationAPI from '../services/api';
 
 export default function TranslationResultScreen({ navigation, route }) {
   const [showOriginal, setShowOriginal] = useState(false);
@@ -36,7 +36,7 @@ export default function TranslationResultScreen({ navigation, route }) {
   const translateImage = async () => {
     setIsLoading(true);
     try {
-      const result = await TranslationAPI.translateImage(
+      const result = await translationAPI.translateImage(
         imageBase64,
         sourceLang || 'auto',
         targetLang
@@ -132,9 +132,9 @@ export default function TranslationResultScreen({ navigation, route }) {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() => navigation.navigate('TranslationDiscovery')}
+          onPress={() => navigation.navigate('TextTranslator')}
         >
-          <Ionicons name="compass-outline" size={28} color="#999" />
+          <Ionicons name="home-outline" size={28} color="#5B67F5" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem}>
           <Ionicons name="camera" size={28} color="#5B67F5" />

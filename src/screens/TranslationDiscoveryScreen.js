@@ -37,6 +37,7 @@ export default function TranslationDiscoveryScreen({ navigation }) {
             style={styles.translateButton}
             onPress={() => navigation.navigate('SentenceChallenge')}
           >
+            <Ionicons name="happy-outline" size={20} color="#fff" style={styles.buttonIcon} />
             <Text style={styles.translateButtonText}>Translate now</Text>
           </TouchableOpacity>
           <View style={styles.emojiContainer}>
@@ -50,6 +51,7 @@ export default function TranslationDiscoveryScreen({ navigation }) {
             <Text style={styles.categorySubtitle}>Translation for cats and dogs</Text>
           </View>
           <TouchableOpacity style={styles.translateButton}>
+            <Ionicons name="paw-outline" size={20} color="#fff" style={styles.buttonIcon} />
             <Text style={styles.translateButtonText}>Translate now</Text>
           </TouchableOpacity>
           <View style={styles.petEmojis}>
@@ -61,18 +63,34 @@ export default function TranslationDiscoveryScreen({ navigation }) {
         <View style={styles.featureGrid}>
           <TouchableOpacity style={styles.featureCard}>
             <View style={styles.featureIcon}>
-              <Ionicons name="book-outline" size={32} color="#5B67F5" />
-            </View>
-            <Text style={styles.featureTitle}>Discover</Text>
-            <Text style={styles.featureSubtitle}>Pet Translation</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.featureCard}>
-            <View style={styles.featureIcon}>
               <Ionicons name="school-outline" size={32} color="#5B67F5" />
             </View>
             <Text style={styles.featureTitle}>Learn</Text>
             <Text style={styles.featureSubtitle}>Learn New Language</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.featureCard}>
+            <View style={styles.featureIcon}>
+              <Ionicons name="language-outline" size={32} color="#5B67F5" />
+            </View>
+            <Text style={styles.featureTitle}>Practice</Text>
+            <Text style={styles.featureSubtitle}>Improve Your Skills</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.featureCard}>
+            <View style={styles.featureIcon}>
+              <Ionicons name="game-controller-outline" size={32} color="#5B67F5" />
+            </View>
+            <Text style={styles.featureTitle}>Games</Text>
+            <Text style={styles.featureSubtitle}>Fun Learning Activities</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.featureCard}>
+            <View style={styles.featureIcon}>
+              <Ionicons name="people-outline" size={32} color="#5B67F5" />
+            </View>
+            <Text style={styles.featureTitle}>Community</Text>
+            <Text style={styles.featureSubtitle}>Connect with Others</Text>
           </TouchableOpacity>
         </View>
 
@@ -154,6 +172,10 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+    marginLeft: 8,
+  },
+  buttonIcon: {
+    marginRight: 5,
   },
   emojiContainer: {
     position: 'absolute',

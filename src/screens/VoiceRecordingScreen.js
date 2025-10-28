@@ -12,7 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
-import TranslationAPI from '../services/api';
+import translationAPI from '../services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -201,12 +201,12 @@ export default function VoiceRecordingScreen({ navigation }) {
       </View>
 
       <View style={styles.bottomNav}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.navButton}
-          onPress={() => navigation.navigate('TranslationDiscovery')}
+          onPress={() => navigation.navigate('TextTranslator')}
         >
-          <Ionicons name="compass-outline" size={28} color="#999" />
-          <Text style={styles.navText}>Discover</Text>
+          <Ionicons name="home-outline" size={28} color="#5B67F5" />
+          <Text style={[styles.navText, styles.navTextActive]}>Home</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.navButton, styles.navButtonActive]}
