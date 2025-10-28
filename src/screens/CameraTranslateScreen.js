@@ -1,24 +1,34 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Image,
   Alert,
-  ActivityIndicator,
+  Modal,
+  ScrollView,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import translationAPI from '../services/api';
+import BottomNavigation from '../components/BottomNavigation';
+
+const LANGUAGES = [
+  { code: 'vi', name: 'Vietnamese', flag: '🇻🇳' },
+  { code: 'en', name: 'English', flag: '🇬🇧' },
+  { code: 'es', name: 'Spanish', flag: '🇪🇸' },
+  { code: 'fr', name: 'French', flag: '🇫🇷' },
+  { code: 'de', name: 'German', flag: '🇩🇪' },
+  { code: 'ja', name: 'Japanese', flag: '🇯🇵' },
+  { code: 'ko', name: 'Korean', flag: '🇰🇷' },
+  { code: 'zh', name: 'Chinese', flag: '🇨🇳' },
+];
 
 export default function CameraTranslateScreen({ navigation }) {
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState('back');
-  const [capturedImage, setCapturedImage] = useState(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [targetLang, setTargetLang] = useState('vi');
+  const [targetLang, setTargetLang] = useState('Vietnamese');
+  const [showLanguagePicker, setShowLanguagePicker] = useState(false);
   const cameraRef = useRef(null);
 
   const takePicture = async () => {
@@ -28,7 +38,7 @@ export default function CameraTranslateScreen({ navigation }) {
           quality: 0.8,
           base64: false,
         });
-        setCapturedImage(photo.uri);
+        navigation.navigate('ImageTranslate', { imageUri: photo.uri, targetLanguage: targetLang });
       } catch (error) {
         console.error('Error taking picture:', error);
         Alert.alert('Error', 'Failed to take picture');
@@ -45,39 +55,12 @@ export default function CameraTranslateScreen({ navigation }) {
       });
 
       if (!result.canceled) {
-        setCapturedImage(result.assets[0].uri);
+        navigation.navigate('ImageTranslate', { imageUri: result.assets[0].uri, targetLanguage: targetLang });
       }
     } catch (error) {
       console.error('Error picking image:', error);
       Alert.alert('Error', 'Failed to pick image');
     }
-  };
-
-  const translateImage = async () => {
-    if (!capturedImage) return;
-
-    setIsProcessing(true);
-    try {
-      // Simulate translation - Image API not available yet
-      setTimeout(() => {
-        setIsProcessing(false);
-        navigation.navigate('TranslationResult', {
-          originalText: 'Image text (demo)',
-          translatedText: 'Văn bản hình ảnh (demo)',
-          sourceLang: 'en',
-          targetLang: 'vi',
-          imageUri: capturedImage,
-        });
-      }, 1500);
-    } catch (error) {
-      setIsProcessing(false);
-      console.error('Translation error:', error);
-      Alert.alert('Error', 'Feature coming soon');
-    }
-  };
-
-  const retake = () => {
-    setCapturedImage(null);
   };
 
   function toggleCameraFacing() {
@@ -92,7 +75,7 @@ export default function CameraTranslateScreen({ navigation }) {
     return (
       <View style={styles.container}>
         <Text style={styles.permissionText}>No access to camera</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.button}
           onPress={requestPermission}
         >
@@ -102,67 +85,7 @@ export default function CameraTranslateScreen({ navigation }) {
     );
   }
 
-  if (capturedImage) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="close" size={32} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Live Text Capture</Text>
-          <View style={{ width: 32 }} />
-        </View>
-
-        <View style={styles.imagePreview}>
-          <Image source={{ uri: capturedImage }} style={styles.image} />
-        </View>
-
-        {isProcessing ? (
-          <View style={styles.processingContainer}>
-            <ActivityIndicator size="large" color="#5B67F5" />
-            <Text style={styles.processingText}>Translating image...</Text>
-          </View>
-        ) : (
-          <View style={styles.actionsContainer}>
-            <TouchableOpacity style={styles.actionButton} onPress={retake}>
-              <Ionicons name="camera-outline" size={32} color="#fff" />
-              <Text style={styles.actionText}>Retake</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.translateButton]}
-              onPress={translateImage}
-            >
-              <Ionicons name="language-outline" size={32} color="#fff" />
-              <Text style={styles.actionText}>Translate</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        <View style={styles.bottomNav}>
-          <TouchableOpacity
-            style={styles.navButton}
-            onPress={() => navigation.navigate('TextTranslator')}
-          >
-            <Ionicons name="home-outline" size={28} color="#5B67F5" />
-            <Text style={[styles.navText, styles.navTextActive]}>Home</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.navButton}
-            onPress={() => navigation.navigate('VoiceRecording')}
-          >
-            <Ionicons name="mic-outline" size={28} color="#999" />
-            <Text style={styles.navText}>Voice</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.navButton, styles.navButtonActive]}
-          >
-            <Ionicons name="camera" size={28} color="#5B67F5" />
-            <Text style={[styles.navText, styles.navTextActive]}>Camera</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
+  const selectedLanguage = LANGUAGES.find(lang => lang.name === targetLang) || LANGUAGES[0];
 
   return (
     <View style={styles.container}>
@@ -172,7 +95,9 @@ export default function CameraTranslateScreen({ navigation }) {
             <Ionicons name="arrow-back" size={28} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Live Text Capture</Text>
-          <View style={{ width: 28 }} />
+          <TouchableOpacity onPress={() => setShowLanguagePicker(true)}>
+            <Text style={styles.languageBadge}>{selectedLanguage.flag}</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.scanFrame}>
@@ -196,28 +121,55 @@ export default function CameraTranslateScreen({ navigation }) {
         </View>
       </CameraView>
 
-      <View style={styles.bottomNav}>
+      <Modal
+        visible={showLanguagePicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowLanguagePicker(false)}
+      >
         <TouchableOpacity
-          style={styles.navButton}
-          onPress={() => navigation.navigate('TextTranslator')}
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowLanguagePicker(false)}
         >
-          <Ionicons name="home-outline" size={28} color="#5B67F5" />
-          <Text style={[styles.navText, styles.navTextActive]}>Home</Text>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Target Language</Text>
+              <TouchableOpacity onPress={() => setShowLanguagePicker(false)}>
+                <Ionicons name="close" size={28} color="#333" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView>
+              {LANGUAGES.map((lang) => (
+                <TouchableOpacity
+                  key={lang.code}
+                  style={[
+                    styles.languageOption,
+                    targetLang === lang.name && styles.languageOptionActive
+                  ]}
+                  onPress={() => {
+                    setTargetLang(lang.name);
+                    setShowLanguagePicker(false);
+                  }}
+                >
+                  <Text style={styles.languageFlag}>{lang.flag}</Text>
+                  <Text style={[
+                    styles.languageOptionText,
+                    targetLang === lang.name && styles.languageOptionTextActive
+                  ]}>
+                    {lang.name}
+                  </Text>
+                  {targetLang === lang.name && (
+                    <Ionicons name="checkmark" size={24} color="#5B67F5" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navButton}
-          onPress={() => navigation.navigate('VoiceRecording')}
-        >
-          <Ionicons name="mic-outline" size={28} color="#999" />
-          <Text style={styles.navText}>Voice</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.navButton, styles.navButtonActive]}
-        >
-          <Ionicons name="camera" size={28} color="#5B67F5" />
-          <Text style={[styles.navText, styles.navTextActive]}>Camera</Text>
-        </TouchableOpacity>
-      </View>
+      </Modal>
+
+      <BottomNavigation navigation={navigation} activeScreen="camera" />
     </View>
   );
 }
@@ -334,6 +286,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#000',
+    position: 'relative', // Needed for absolute positioning of translated segments
   },
   image: {
     width: '100%',
@@ -390,33 +343,75 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  bottomNav: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 15,
-    paddingBottom: 30,
+  languageBadge: {
+    fontSize: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 10,
+    maxHeight: '70%',
+    paddingBottom: 30,
   },
-  navButton: {
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  languageOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  languageOptionActive: {
+    backgroundColor: '#f0f4ff',
+  },
+  languageFlag: {
+    fontSize: 28,
+    marginRight: 15,
+  },
+  languageOptionText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+  },
+  languageOptionTextActive: {
+    fontWeight: 'bold',
+    color: '#5B67F5',
+  },
+  translatedSegment: {
+    position: 'absolute',
+    backgroundColor: 'rgba(91, 103, 245, 0.7)', // Semi-transparent blue background
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 3,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  navButtonActive: {
-    // Active state
-  },
-  navText: {
+  translatedText: {
+    color: '#fff',
     fontSize: 12,
-    color: '#999',
-    marginTop: 4,
-  },
-  navTextActive: {
-    color: '#5B67F5',
-    fontWeight: '600',
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
