@@ -77,21 +77,34 @@ export default function FileUploadScreen({ navigation }) {
           // Convert blob to base64 for React Native
           const reader = new FileReader();
           reader.onloadend = async () => {
-            const base64data = reader.result.split(',')[1];
-            
-            await FileSystem.writeAsStringAsync(fileUri, base64data, {
-              encoding: FileSystem.EncodingType.Base64,
-            });
-
-            if (await Sharing.isAvailableAsync()) {
-              await Sharing.shareAsync(fileUri, {
-                mimeType: 'application/octet-stream',
-                dialogTitle: 'Download translated file',
+            try {
+              const base64data = reader.result.split(',')[1];
+              
+              await FileSystem.writeAsStringAsync(fileUri, base64data, {
+                encoding: FileSystem.EncodingType.Base64,
               });
-            } else {
-              Alert.alert('Success', 'File has been saved to your device');
+
+              console.log('File saved to:', fileUri);
+
+              if (await Sharing.isAvailableAsync()) {
+                await Sharing.shareAsync(fileUri, {
+                  mimeType: 'application/octet-stream',
+                  dialogTitle: 'Download translated file',
+                });
+              } else {
+                Alert.alert('Success', 'File has been saved to your device');
+              }
+            } catch (writeError) {
+              console.error('Error writing file:', writeError);
+              Alert.alert('Download Error', 'Failed to save downloaded file');
             }
           };
+          
+          reader.onerror = () => {
+            console.error('FileReader error:', reader.error);
+            Alert.alert('Download Error', 'Failed to read downloaded file');
+          };
+          
           reader.readAsDataURL(blob);
         } catch (error) {
           console.error('Download error:', error);

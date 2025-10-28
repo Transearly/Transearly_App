@@ -208,6 +208,24 @@ class TranslationAPI {
   }
 
   /**
+   * Get MIME type based on file extension
+   * @param {string} fileName - Name of the file
+   * @returns {string} MIME type
+   */
+  getMimeType(fileName) {
+    const extension = fileName.split('.').pop().toLowerCase();
+    const mimeTypes = {
+      'pdf': 'application/pdf',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'csv': 'text/csv',
+      'txt': 'text/plain'
+    };
+    return mimeTypes[extension] || 'application/octet-stream';
+  }
+
+  /**
    * Handle API errors
    * @param {Error} error - Error object
    * @returns {Error} Formatted error
