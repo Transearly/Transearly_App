@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import translationAPI from '../services/api';
+import BottomNavigation from '../components/BottomNavigation';
 
 const LANGUAGES = [
   { code: 'auto', name: 'Auto Detect', flag: '🌐' },
@@ -29,12 +30,11 @@ const LANGUAGES = [
 export default function TextTranslatorScreen({ navigation }) {
   const [sourceText, setSourceText] = useState('');
   const [translatedText, setTranslatedText] = useState('');
-  const [sourceLang, setSourceLang] = useState('en');
-  const [sourceLangName, setSourceLangName] = useState('English');
+  const [sourceLang, setSourceLang] = useState('auto');
+  const [sourceLangName, setSourceLangName] = useState('Auto Detect');
   const [targetLang, setTargetLang] = useState('vi');
   const [targetLangName, setTargetLangName] = useState('Vietnamese');
   const [isTranslating, setIsTranslating] = useState(false);
-  const [showSourcePicker, setShowSourcePicker] = useState(false);
   const [showTargetPicker, setShowTargetPicker] = useState(false);
 
   // Hàm xử lý dịch text dưới dạng file
@@ -90,47 +90,48 @@ export default function TextTranslatorScreen({ navigation }) {
 
     setIsTranslating(true);
     try {
-      // For demo purposes, simulate translation without API call
-      // In a real implementation, you would call translation API
-      setTimeout(() => {
-        const demoTranslation = `[Demo Translation] ${sourceText}`;
-        setTranslatedText(demoTranslation);
-        setIsTranslating(false);
-        
-        // Navigate to result screen
-        navigation.navigate('TranslationResult', {
-          originalText: sourceText,
-          translatedText: demoTranslation,
-          sourceLang: sourceLang,
-          targetLang: targetLang,
-          mode: 'text'
-        });
-      }, 1000);
+      console.log('Calling translation API with:', {
+        text: sourceText.substring(0, 50) + '...',
+        targetLanguage: targetLangName
+      });
+
+      // Call the real translation API (AI auto-detects source language)
+      const result = await translationAPI.translateText(
+        sourceText,
+        targetLangName
+      );
+
+      console.log('Translation API result:', result);
+
+      if (!result || !result.translatedText) {
+        throw new Error('No translation result received from server');
+      }
+
+      setTranslatedText(result.translatedText);
+      setIsTranslating(false);
+
+      // Navigate to result screen
+      navigation.navigate('TranslationResult', {
+        originalText: sourceText,
+        translatedText: result.translatedText,
+        sourceLang: sourceLangName,
+        targetLang: targetLangName,
+        mode: 'text'
+      });
     } catch (error) {
       setIsTranslating(false);
-      Alert.alert('Error', error.message || 'Translation failed');
-    }
-  };
+      console.error('Translation error:', error);
 
-  const swapLanguages = () => {
-    // Don't swap if source is auto
-    if (sourceLang === 'auto') {
-      Alert.alert('Cannot swap', 'Auto-detect cannot be used as target language');
-      return;
-    }
-    
-    setSourceLang(targetLang);
-    setSourceLangName(targetLangName);
-    setTargetLang(sourceLang);
-    setTargetLangName(sourceLangName);
-    setSourceText(translatedText);
-    setTranslatedText(sourceText);
-  };
+      // More detailed error message
+      let errorMessage = 'Translation failed';
+      if (error.message.includes('Network Error')) {
+        errorMessage = 'Cannot connect to server. Please check:\n1. WiFi connection\n2. Server is running\n3. Same network as server';
+      } else {
+        errorMessage = error.message || 'Unknown error occurred';
+      }
 
-  const selectSourceLanguage = (lang) => {
-    setSourceLang(lang.code);
-    setSourceLangName(lang.name);
-    setShowSourcePicker(false);
+      Alert.alert('Translation Error', errorMessage);
+    }
   };
 
   const selectTargetLanguage = (lang) => {
@@ -147,9 +148,7 @@ export default function TextTranslatorScreen({ navigation }) {
     <>
       <SafeAreaView style={[styles.container, { backgroundColor: '#f0f4ff' }]}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={28} color="#333" />
-          </TouchableOpacity>
+          <View style={styles.headerLeft} />
           <Text style={styles.title}>Text Translator</Text>
           <View style={styles.headerIcons}>
             <Ionicons name="diamond-outline" size={24} color="#FFB800" style={styles.icon} />
@@ -159,19 +158,15 @@ export default function TextTranslatorScreen({ navigation }) {
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.languageSelector}>
-            <TouchableOpacity 
-              style={styles.languageButton}
-              onPress={() => setShowSourcePicker(true)}
-            >
-              <Text style={styles.languageText}>{sourceLangName}</Text>
-              <Ionicons name="chevron-down" size={16} color="#5B67F5" />
-            </TouchableOpacity>
+            <View style={styles.languageButton}>
+              <Text style={styles.languageText}>🌐 Auto Detect</Text>
+            </View>
 
-            <TouchableOpacity style={styles.swapButton} onPress={swapLanguages}>
-              <Ionicons name="swap-horizontal" size={28} color="#5B67F5" />
-            </TouchableOpacity>
+            <View style={styles.arrowContainer}>
+              <Ionicons name="arrow-forward" size={28} color="#5B67F5" />
+            </View>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.languageButton}
               onPress={() => setShowTargetPicker(true)}
             >
@@ -274,51 +269,6 @@ export default function TextTranslatorScreen({ navigation }) {
         </ScrollView>
 
         <Modal
-          visible={showSourcePicker}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowSourcePicker(false)}
-        >
-          <TouchableOpacity 
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setShowSourcePicker(false)}
-          >
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Source Language</Text>
-                <TouchableOpacity onPress={() => setShowSourcePicker(false)}>
-                  <Ionicons name="close" size={28} color="#333" />
-                </TouchableOpacity>
-              </View>
-              <ScrollView>
-                {LANGUAGES.map((lang) => (
-                  <TouchableOpacity
-                    key={lang.code}
-                    style={[
-                      styles.languageOption,
-                      sourceLang === lang.code && styles.languageOptionActive
-                    ]}
-                    onPress={() => selectSourceLanguage(lang)}
-                  >
-                    <Text style={styles.languageFlag}>{lang.flag}</Text>
-                    <Text style={[
-                      styles.languageOptionText,
-                      sourceLang === lang.code && styles.languageOptionTextActive
-                    ]}>
-                      {lang.name}
-                    </Text>
-                    {sourceLang === lang.code && (
-                      <Ionicons name="checkmark" size={24} color="#5B67F5" />
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </TouchableOpacity>
-        </Modal>
-
-        <Modal
           visible={showTargetPicker}
           transparent
           animationType="slide"
@@ -362,6 +312,8 @@ export default function TextTranslatorScreen({ navigation }) {
             </View>
           </TouchableOpacity>
         </Modal>
+
+        <BottomNavigation navigation={navigation} activeScreen="home" />
       </SafeAreaView>
     </>
   );
@@ -379,17 +331,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 20,
   },
+  headerLeft: {
+    width: 60,
+  },
   title: {
     fontSize: 20,
     fontWeight: '600',
     color: '#333',
+    flex: 1,
+    textAlign: 'center',
   },
   headerIcons: {
     flexDirection: 'row',
     alignItems: 'center',
+    width: 60,
+    justifyContent: 'flex-end',
   },
   icon: {
-    marginRight: 15,
+    marginRight: 12,
   },
   content: {
     flex: 1,
@@ -420,7 +379,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginRight: 8,
   },
-  swapButton: {
+  arrowContainer: {
     padding: 10,
   },
   inputCard: {
@@ -680,6 +639,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    marginTop: 20,
     marginBottom: 20,
   },
   methodCard: {
@@ -687,7 +647,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     width: '48%',
-    marginBottom: 10,
+    marginBottom: 25,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },

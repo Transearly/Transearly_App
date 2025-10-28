@@ -1,17 +1,44 @@
 // API Configuration
 import { API_URL, WEBSOCKET_URL } from '@env';
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
-// Use environment variable or fallback to deployment URLs
-const baseUrl = API_URL || 'http://192.168.102.92:5010';
-const wsUrl = WEBSOCKET_URL || 'ws://192.168.102.92:5010';
+// Determine the base URL based on environment
+const getBaseUrl = () => {
+  // If environment variable is set, use it
+  if (API_URL) {
+    return API_URL;
+  }
 
-export const API_BASE_URL = baseUrl;
-export const WS_BASE_URL = wsUrl;
+  // For Android Emulator, use 10.0.2.2 to access host machine
+  if (Platform.OS === 'android' && !Constants.isDevice) {
+    return 'http://10.0.2.2:5010';
+  }
+
+  // For iOS Simulator or physical devices, use local network IP
+  return 'http://192.168.102.92:5010';
+};
+
+const getWsUrl = () => {
+  if (WEBSOCKET_URL) {
+    return WEBSOCKET_URL;
+  }
+
+  if (Platform.OS === 'android' && !Constants.isDevice) {
+    return 'ws://10.0.2.2:5010';
+  }
+
+  return 'ws://192.168.102.92:5010';
+};
+
+export const API_BASE_URL = getBaseUrl();
+export const WS_BASE_URL = getWsUrl();
 
 export const API_ENDPOINTS = {
   UPLOAD_FILE: '/translator/upload',
   DOWNLOAD_FILE: (fileName) => `/translator/download/${fileName}`,
   TRANSLATE_TEXT: '/translator/text',
+  TRANSLATE_IMAGE: '/translator/image',
 };
 
 export const WS_EVENTS = {

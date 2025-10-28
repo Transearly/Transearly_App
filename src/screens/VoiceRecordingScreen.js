@@ -13,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import translationAPI from '../services/api';
+import BottomNavigation from '../components/BottomNavigation';
 
 const { width } = Dimensions.get('window');
 
@@ -200,35 +201,7 @@ export default function VoiceRecordingScreen({ navigation }) {
         </Text>
       </View>
 
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navButton}
-          onPress={() => navigation.navigate('TextTranslator')}
-        >
-          <Ionicons name="home-outline" size={28} color="#5B67F5" />
-          <Text style={[styles.navText, styles.navTextActive]}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.navButton, styles.navButtonActive]}
-        >
-          <Ionicons name="mic" size={28} color="#5B67F5" />
-          <Text style={[styles.navText, styles.navTextActive]}>Voice</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.navButton}
-          onPress={() => navigation.navigate('TextTranslator')}
-        >
-          <Ionicons name="text-outline" size={28} color="#999" />
-          <Text style={styles.navText}>Text</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.navButton}
-          onPress={() => navigation.navigate('CameraTranslate')}
-        >
-          <Ionicons name="camera-outline" size={28} color="#999" />
-          <Text style={styles.navText}>Camera</Text>
-        </TouchableOpacity>
-      </View>
+      <BottomNavigation navigation={navigation} activeScreen="voice" />
     </LinearGradient>
   );
 }
@@ -344,34 +317,5 @@ const styles = StyleSheet.create({
   instructionSubtitle: {
     fontSize: 16,
     color: '#999',
-  },
-  bottomNav: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 15,
-    paddingBottom: 30,
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 10,
-  },
-  navButton: {
-    alignItems: 'center',
-  },
-  navButtonActive: {
-    // Active state
-  },
-  navText: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 4,
-  },
-  navTextActive: {
-    color: '#5B67F5',
-    fontWeight: '600',
   },
 });

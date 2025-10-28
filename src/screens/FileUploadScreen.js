@@ -9,6 +9,7 @@ import {
   Alert,
   Linking,
   Platform,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +19,8 @@ import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
 import * as IntentLauncher from 'expo-intent-launcher';
 import translationAPI from '../services/api';
+import { API_BASE_URL } from '../config/api.config';
+import BottomNavigation from '../components/BottomNavigation';
 
 const SUPPORTED_TYPES = [
   { ext: '.txt', icon: 'document-text', name: 'Text' },
@@ -27,11 +30,25 @@ const SUPPORTED_TYPES = [
   { ext: '.pptx', icon: 'layers', name: 'PowerPoint' },
 ];
 
+const LANGUAGES = [
+  { code: 'en', name: 'English', flag: '🇬🇧' },
+  { code: 'vi', name: 'Vietnamese', flag: '🇻🇳' },
+  { code: 'es', name: 'Spanish', flag: '🇪🇸' },
+  { code: 'fr', name: 'French', flag: '🇫🇷' },
+  { code: 'de', name: 'German', flag: '🇩🇪' },
+  { code: 'ja', name: 'Japanese', flag: '🇯🇵' },
+  { code: 'ko', name: 'Korean', flag: '🇰🇷' },
+  { code: 'zh', name: 'Chinese', flag: '🇨🇳' },
+  { code: 'th', name: 'Thai', flag: '🇹🇭' },
+  { code: 'id', name: 'Indonesian', flag: '🇮🇩' },
+];
+
 export default function FileUploadScreen({ navigation }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [targetLang, setTargetLang] = useState('English');
+  const [targetLang, setTargetLang] = useState('Vietnamese');
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [progress, setProgress] = useState('');
   const [downloadedFile, setDownloadedFile] = useState(null);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -92,7 +109,7 @@ export default function FileUploadScreen({ navigation }) {
         // Store file info for download
         setDownloadedFile({
           fileName: data.fileName,
-          downloadUrl: `http://192.168.1.119:5010/translator/download/${data.fileName}`
+          downloadUrl: `${API_BASE_URL}/translator/download/${data.fileName}`
         });
       },
       (error) => {
@@ -384,73 +401,37 @@ export default function FileUploadScreen({ navigation }) {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
+  const selectedLanguage = LANGUAGES.find(lang => lang.name === targetLang) || LANGUAGES[1];
+
   return (
     <LinearGradient
       colors={['#f0f4ff', '#e8f5f0']}
       style={styles.container}
     >
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={28} color="#333" />
         </TouchableOpacity>
         <Text style={styles.title}>File Translation</Text>
-        <View style={styles.headerIcons}>
-          <Ionicons name="diamond-outline" size={24} color="#FFB800" style={styles.icon} />
-        </View>
+        <TouchableOpacity style={styles.premiumButton}>
+          <Ionicons name="diamond-outline" size={24} color="#FFB800" />
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Supported File Types</Text>
-          <View style={styles.fileTypes}>
-            {SUPPORTED_TYPES.map((type) => (
-              <View key={type.ext} style={styles.fileTypeCard}>
-                <Ionicons name={type.icon} size={32} color="#5B67F5" />
-                <Text style={styles.fileTypeName}>{type.name}</Text>
-                <Text style={styles.fileTypeExt}>{type.ext}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Target Language</Text>
-          <View style={styles.languageButtons}>
-            <TouchableOpacity
-              style={[
-                styles.languageButton,
-                targetLang === 'English' && styles.languageButtonActive,
-              ]}
-              onPress={() => setTargetLang('English')}
-              disabled={isUploading || isProcessing}
-            >
-              <Text
-                style={[
-                  styles.languageButtonText,
-                  targetLang === 'English' && styles.languageButtonTextActive,
-                ]}
-              >
-                English
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.languageButton,
-                targetLang === 'Vietnamese' && styles.languageButtonActive,
-              ]}
-              onPress={() => setTargetLang('Vietnamese')}
-              disabled={isUploading || isProcessing}
-            >
-              <Text
-                style={[
-                  styles.languageButtonText,
-                  targetLang === 'Vietnamese' && styles.languageButtonTextActive,
-                ]}
-              >
-                Vietnamese
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.languageSelector}
+            onPress={() => setShowLanguageModal(true)}
+            disabled={isUploading || isProcessing}
+          >
+            <View style={styles.languageSelectorContent}>
+              <Text style={styles.languageFlag}>{selectedLanguage.flag}</Text>
+              <Text style={styles.languageName}>{selectedLanguage.name}</Text>
+            </View>
+            <Ionicons name="chevron-down" size={24} color="#666" />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.section}>
@@ -488,8 +469,8 @@ export default function FileUploadScreen({ navigation }) {
               disabled={isUploading || isProcessing}
             >
               <Ionicons name="cloud-upload-outline" size={48} color="#5B67F5" />
-              <Text style={styles.pickButtonText}>Choose File</Text>
-              <Text style={styles.pickButtonSubtext}>Max 50MB</Text>
+              <Text style={styles.pickButtonText}>Choose File To Translate</Text>
+              <Text style={styles.pickButtonSubtext}>(.pdf, .docx, .xlsx, .csv, .pptx, .txt)</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -545,28 +526,58 @@ export default function FileUploadScreen({ navigation }) {
         </View>
       </ScrollView>
 
-      <View style={styles.bottomNav}>
+      {/* Language Selection Modal */}
+      <Modal
+        visible={showLanguageModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowLanguageModal(false)}
+      >
         <TouchableOpacity
-          style={[styles.navButton, styles.navButtonActive]}
-          onPress={() => navigation.navigate('TextTranslator')}
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowLanguageModal(false)}
         >
-          <Ionicons name="home-outline" size={28} color="#5B67F5" />
-          <Text style={[styles.navText, styles.navTextActive]}>Home</Text>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Target Language</Text>
+              <TouchableOpacity onPress={() => setShowLanguageModal(false)}>
+                <Ionicons name="close" size={28} color="#333" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.languageList}>
+              {LANGUAGES.map((lang) => (
+                <TouchableOpacity
+                  key={lang.code}
+                  style={[
+                    styles.languageOption,
+                    targetLang === lang.name && styles.languageOptionActive
+                  ]}
+                  onPress={() => {
+                    setTargetLang(lang.name);
+                    setShowLanguageModal(false);
+                  }}
+                >
+                  <View style={styles.languageOptionContent}>
+                    <Text style={styles.languageOptionFlag}>{lang.flag}</Text>
+                    <Text style={[
+                      styles.languageOptionText,
+                      targetLang === lang.name && styles.languageOptionTextActive
+                    ]}>
+                      {lang.name}
+                    </Text>
+                  </View>
+                  {targetLang === lang.name && (
+                    <Ionicons name="checkmark" size={24} color="#5B67F5" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navButton}
-          onPress={() => navigation.navigate('CameraTranslate')}
-        >
-          <Ionicons name="camera-outline" size={28} color="#999" />
-          <Text style={styles.navText}>Camera</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.navButton, styles.navButtonActive]}
-        >
-          <Ionicons name="document" size={28} color="#5B67F5" />
-          <Text style={[styles.navText, styles.navTextActive]}>File</Text>
-        </TouchableOpacity>
-      </View>
+      </Modal>
+
+      <BottomNavigation navigation={navigation} activeScreen="file" />
     </LinearGradient>
   );
 }
@@ -583,83 +594,74 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 20,
   },
+  backButton: {
+    width: 40,
+  },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
+    flex: 1,
+    textAlign: 'center',
   },
-  headerIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  icon: {
-    marginRight: 15,
+  premiumButton: {
+    width: 40,
+    alignItems: 'flex-end',
   },
   content: {
     flex: 1,
     paddingHorizontal: 20,
   },
   section: {
-    marginBottom: 30,
+    marginBottom: 25,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 15,
+    marginBottom: 12,
   },
-  fileTypes: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  fileTypeCard: {
+  fileTypesText: {
     backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 15,
-    alignItems: 'center',
-    width: '18%',
+    padding: 16,
+    borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
   },
-  fileTypeName: {
-    fontSize: 12,
-    color: '#333',
-    marginTop: 8,
-    fontWeight: '600',
+  fileTypesDescription: {
+    fontSize: 15,
+    color: '#666',
+    textAlign: 'center',
+    fontWeight: '500',
   },
-  fileTypeExt: {
-    fontSize: 10,
-    color: '#999',
-    marginTop: 2,
-  },
-  languageButtons: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  languageButton: {
-    flex: 1,
+  languageSelector: {
     backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 15,
+    padding: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#eee',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  languageButtonActive: {
-    borderColor: '#5B67F5',
-    backgroundColor: '#5B67F5',
+  languageSelectorContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  languageButtonText: {
+  languageFlag: {
+    fontSize: 28,
+    marginRight: 12,
+  },
+  languageName: {
     fontSize: 16,
     color: '#333',
     fontWeight: '600',
-  },
-  languageButtonTextActive: {
-    color: '#fff',
   },
   pickButton: {
     backgroundColor: '#fff',
@@ -680,6 +682,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
     marginTop: 5,
+  },
+  supportedTypesBox: {
+    backgroundColor: '#f8f9ff',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 15,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e5ff',
+  },
+  supportedTypesTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#5B67F5',
+    marginBottom: 6,
+  },
+  supportedTypesText: {
+    fontSize: 15,
+    color: '#666',
+    fontWeight: '500',
   },
   selectedFileCard: {
     backgroundColor: '#fff',
@@ -740,33 +762,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     color: '#666',
-  },
-  bottomNav: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 15,
-    paddingBottom: 30,
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 10,
-  },
-  navButton: {
-    alignItems: 'center',
-  },
-  navButtonActive: {},
-  navText: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 4,
-  },
-  navTextActive: {
-    color: '#5B67F5',
-    fontWeight: '600',
   },
   progressSubtext: {
     fontSize: 13,
@@ -837,5 +832,65 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 10,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    paddingTop: 20,
+    paddingBottom: 40,
+    maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  languageList: {
+    paddingTop: 10,
+  },
+  languageOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f5f5f5',
+  },
+  languageOptionActive: {
+    backgroundColor: '#f0f4ff',
+  },
+  languageOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  languageOptionFlag: {
+    fontSize: 28,
+    marginRight: 15,
+  },
+  languageOptionText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
+  languageOptionTextActive: {
+    color: '#5B67F5',
+    fontWeight: '600',
   },
 });

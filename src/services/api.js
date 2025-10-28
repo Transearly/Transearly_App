@@ -11,6 +11,9 @@ if (typeof WebSocket !== 'undefined') {
 
 class TranslationAPI {
   constructor() {
+    // Log the API_BASE_URL being used
+    console.log('[TranslationAPI] Initializing with baseURL:', API_BASE_URL);
+
     this.api = axios.create({
       baseURL: API_BASE_URL,
       timeout: 30000,
@@ -250,31 +253,108 @@ class TranslationAPI {
   }
 
   /**
-   * Translate text from one language to another using OpenAI API
+   * Translate text using AI (auto-detects source language)
    * @param {string} text - Text to translate
-   * @param {string} fromLang - Source language code
-   * @param {string} toLang - Target language code
+   * @param {string} targetLanguage - Target language name (e.g., 'Vietnamese', 'English')
    * @returns {Promise<Object>} Translation result
    */
-  async translateText(text, fromLang = 'auto', toLang = 'en') {
+  async translateText(text, targetLanguage = 'English') {
     try {
+      console.log('translateText - API Base URL:', API_BASE_URL);
+      console.log('translateText - Endpoint:', API_ENDPOINTS.TRANSLATE_TEXT);
+      console.log('translateText - Full URL:', API_BASE_URL + API_ENDPOINTS.TRANSLATE_TEXT);
+      console.log('translateText - Request payload:', { text: text.substring(0, 50) + '...', targetLanguage });
+
       const response = await this.api.post(API_ENDPOINTS.TRANSLATE_TEXT, {
         text,
-        sourceLanguage: fromLang,
-        targetLanguage: toLang
+        targetLanguage
       });
+
+      console.log('translateText - Response status:', response.status);
+      console.log('translateText - Response data:', response.data);
 
       if (!response.data) {
         throw new Error('No response data received');
       }
 
+      // Handle both direct response and wrapped response
+      const data = response.data.data || response.data;
+
       return {
-        translatedText: response.data.translatedText,
-        sourceLang: fromLang,
-        targetLang: toLang
+        translatedText: data.translatedText,
+        targetLanguage: data.targetLanguage,
+        success: data.success
       };
     } catch (error) {
       console.error('Text Translation API error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        response: error.response?.data
+      });
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Translate image using AI (OCR + Translation)
+   * @param {Object} imageFile - Image file object with uri, type, name
+   * @param {string} targetLanguage - Target language name (e.g., 'Vietnamese', 'English')
+   * @returns {Promise<Object>} Translation result with extracted and translated text
+   */
+  async translateImage(imageFile, targetLanguage = 'Vietnamese') {
+    try {
+      console.log('translateImage - API Base URL:', API_BASE_URL);
+      console.log('translateImage - Endpoint:', API_ENDPOINTS.TRANSLATE_IMAGE);
+      console.log('translateImage - Full URL:', API_BASE_URL + API_ENDPOINTS.TRANSLATE_IMAGE);
+      console.log('translateImage - Request payload:', {
+        fileName: imageFile.name,
+        targetLanguage
+      });
+
+      // Create FormData for image upload
+      const formData = new FormData();
+
+      // Create proper file object for React Native
+      const fileObj = {
+        uri: imageFile.uri,
+        type: imageFile.type || 'image/jpeg',
+        name: imageFile.name || 'photo.jpg',
+      };
+
+      formData.append('file', fileObj);
+      formData.append('targetLanguage', targetLanguage);
+
+      const response = await this.api.post(API_ENDPOINTS.TRANSLATE_IMAGE, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 60000, // 60 second timeout for image processing
+      });
+
+      console.log('translateImage - Response status:', response.status);
+      console.log('translateImage - Response data:', response.data);
+
+      if (!response.data) {
+        throw new Error('No response data received');
+      }
+
+      // Handle both direct response and wrapped response
+      const data = response.data.data || response.data;
+
+      return {
+        translatedText: data.translatedText,
+        targetLanguage: data.targetLanguage,
+        success: data.success,
+        segments: data.segments || [] // Array of {original, translated, position}
+      };
+    } catch (error) {
+      console.error('Image Translation API error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        response: error.response?.data
+      });
       throw this.handleError(error);
     }
   }
