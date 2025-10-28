@@ -7,12 +7,16 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Linking,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import * as MediaLibrary from 'expo-media-library';
+import * as IntentLauncher from 'expo-intent-launcher';
 import translationAPI from '../services/api';
 
 const SUPPORTED_TYPES = [
@@ -29,6 +33,8 @@ export default function FileUploadScreen({ navigation }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [targetLang, setTargetLang] = useState('English');
   const [progress, setProgress] = useState('');
+  const [downloadedFile, setDownloadedFile] = useState(null);
+  const [isDownloading, setIsDownloading] = useState(false);
   const api = translationAPI;
 
   useEffect(() => {
@@ -46,22 +52,36 @@ export default function FileUploadScreen({ navigation }) {
   const initializeWebSocket = async () => {
     try {
       console.log('Attempting to initialize WebSocket...');
-      await api.initializeWebSocket();
+      const socketId = await api.initializeWebSocket();
       setupWebSocketListeners();
-      console.log('WebSocket initialized successfully');
-      return true;
+      console.log('WebSocket initialized successfully with ID:', socketId);
+      return socketId;
     } catch (error) {
       console.error('WebSocket connection error:', error);
       console.error('Error message:', error.message);
       
       // Don't show error - we'll use fallback ID
       console.log('Will proceed with fallback ID for file upload');
-      return true; // Always return true so upload can proceed
+      const fallbackId = 'fallback-' + Date.now();
+      api.socketId = fallbackId; // Set fallback ID
+      return fallbackId; // Always return an ID so upload can proceed
     }
   };
 
   const setupWebSocketListeners = () => {
     console.log('Setting up WebSocket listeners...');
+    
+    // Check if socket is actually connected
+    if (!api.socket) {
+      console.log('Socket is not initialized in setupWebSocketListeners');
+      return;
+    }
+    
+    // Listen to all events for debugging
+    api.socket.onAny((eventName, ...args) => {
+      console.log(`Received event: ${eventName}`, args);
+    });
+    
     api.addTranslationListeners(
       async (data) => {
         // Handle translation complete
@@ -69,47 +89,11 @@ export default function FileUploadScreen({ navigation }) {
         setIsProcessing(false);
         setProgress('Translation completed!');
         
-        try {
-          console.log('Downloading file:', data.fileName);
-          const blob = await api.downloadTranslatedFile(data.fileName);
-          const fileUri = `${FileSystem.documentDirectory}${data.fileName}`;
-          
-          // Convert blob to base64 for React Native
-          const reader = new FileReader();
-          reader.onloadend = async () => {
-            try {
-              const base64data = reader.result.split(',')[1];
-              
-              await FileSystem.writeAsStringAsync(fileUri, base64data, {
-                encoding: FileSystem.EncodingType.Base64,
-              });
-
-              console.log('File saved to:', fileUri);
-
-              if (await Sharing.isAvailableAsync()) {
-                await Sharing.shareAsync(fileUri, {
-                  mimeType: 'application/octet-stream',
-                  dialogTitle: 'Download translated file',
-                });
-              } else {
-                Alert.alert('Success', 'File has been saved to your device');
-              }
-            } catch (writeError) {
-              console.error('Error writing file:', writeError);
-              Alert.alert('Download Error', 'Failed to save downloaded file');
-            }
-          };
-          
-          reader.onerror = () => {
-            console.error('FileReader error:', reader.error);
-            Alert.alert('Download Error', 'Failed to read downloaded file');
-          };
-          
-          reader.readAsDataURL(blob);
-        } catch (error) {
-          console.error('Download error:', error);
-          Alert.alert('Download Error', 'Failed to download translated file');
-        }
+        // Store file info for download
+        setDownloadedFile({
+          fileName: data.fileName,
+          downloadUrl: `http://192.168.1.119:5010/translator/download/${data.fileName}`
+        });
       },
       (error) => {
         // Handle translation failed
@@ -119,6 +103,186 @@ export default function FileUploadScreen({ navigation }) {
         Alert.alert('Translation Failed', error.reason || 'An error occurred during translation');
       }
     );
+  };
+
+  const handleDownload = async () => {
+    if (!downloadedFile) return;
+    
+    try {
+      setIsDownloading(true);
+      console.log('Downloading file:', downloadedFile.fileName);
+      console.log('Download URL:', downloadedFile.downloadUrl);
+      
+      // Download to temporary location first
+      const tempUri = FileSystem.cacheDirectory + downloadedFile.fileName;
+      console.log(`Download attempt 1 of 3`);
+      
+      const downloadResumable = FileSystem.createDownloadResumable(
+        downloadedFile.downloadUrl,
+        tempUri,
+        {},
+        (downloadProgressInfo) => {
+          const progress = downloadProgressInfo.totalBytesWritten / downloadProgressInfo.totalBytesExpectedToWrite;
+          console.log(`Download progress: ${Math.round(progress * 100)}%`);
+        }
+      );
+      
+      const result = await downloadResumable.downloadAsync();
+      console.log('File downloaded to:', result.uri);
+      
+      // Verify file exists and has content
+      const fileInfo = await FileSystem.getInfoAsync(result.uri);
+      console.log('File info:', fileInfo);
+      if (fileInfo.exists && fileInfo.size > 0) {
+        console.log(`File successfully downloaded. Size: ${fileInfo.size} bytes`);
+        // Copy file to external storage for Android
+        let finalUri = result.uri;
+        let asset = null; // Move asset declaration to higher scope
+        if (Platform.OS === 'android') {
+          try {
+            // Request media library permissions first
+            const { status } = await MediaLibrary.requestPermissionsAsync();
+            if (status === 'granted') {
+              // Create a copy in the device's external storage first
+              const externalDir = FileSystem.documentDirectory + 'translated/';
+              await FileSystem.makeDirectoryAsync(externalDir, { intermediates: true }).catch(() => {});
+              const externalUri = externalDir + downloadedFile.fileName;
+              await FileSystem.copyAsync({
+                from: result.uri,
+                to: externalUri
+              });
+              
+              // Verify the copy was successful
+              const copiedFileInfo = await FileSystem.getInfoAsync(externalUri);
+              if (copiedFileInfo.exists && copiedFileInfo.size > 0) {
+                console.log(`File successfully copied to: ${externalUri}, Size: ${copiedFileInfo.size} bytes`);
+                
+                // Create asset in DCIM (MediaLibrary saves to DCIM by default)
+                asset = await MediaLibrary.createAssetAsync(externalUri, null, downloadedFile.fileName);
+                console.log('Asset created in DCIM:', asset);
+                finalUri = asset.uri;
+              } else {
+                console.error('Failed to copy file to external storage');
+                finalUri = result.uri;
+              }
+            } else {
+              // Fallback to cache if no permission
+              finalUri = result.uri;
+            }
+          } catch (copyError) {
+            console.error('Error with MediaLibrary:', copyError);
+            // Fallback to cache if copy fails
+            finalUri = result.uri;
+          }
+        }
+        
+        // Show options after download
+        Alert.alert(
+          'Download Complete',
+          'File downloaded successfully! What would you like to do?',
+          [
+            {
+              text: 'Open File',
+              onPress: async () => {
+                try {
+                  if (Platform.OS === 'android') {
+                    // Use IntentLauncher to open the file from DCIM
+                    const mimeType = api.getMimeType(downloadedFile.fileName);
+                    console.log('Opening file with MIME type:', mimeType);
+                    console.log('Using DCIM asset URI:', finalUri);
+                    
+                    // Create content URI using asset ID for better compatibility
+                    let contentUri = finalUri;
+                    if (asset && asset.id) {
+                      // Use content URI with asset ID for proper access
+                      contentUri = `content://media/external/file/${asset.id}`;
+                      console.log('Using content URI with asset ID:', contentUri);
+                    }
+                    
+                    try {
+                      await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+                        data: contentUri,
+                        type: mimeType,
+                        flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+                      });
+                    } catch (intentError) {
+                      console.error('Error opening file with IntentLauncher:', intentError);
+                      
+                      // Try using the copied file in document directory as fallback
+                      if (finalUri.startsWith('file://')) {
+                        const filePath = finalUri.replace('file://', '');
+                        const documentContentUri = `content://com.android.externalstorage.documents/document/primary:${filePath}`;
+                        console.log('Trying fallback with document content URI:', documentContentUri);
+                        
+                        try {
+                          await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+                            data: documentContentUri,
+                            type: mimeType,
+                            flags: 1,
+                          });
+                        } catch (fallbackError) {
+                          console.error('Fallback also failed:', fallbackError);
+                          
+                          // Final fallback to Sharing
+                          if (await Sharing.isAvailableAsync()) {
+                            await Sharing.shareAsync(finalUri, {
+                              mimeType: api.getMimeType(downloadedFile.fileName),
+                              dialogTitle: 'Open translated file',
+                            });
+                          } else {
+                            Alert.alert(
+                              'File Downloaded',
+                              `File downloaded as: ${downloadedFile.fileName}\n\nPlease open it from your file manager at:\n${finalUri}`
+                            );
+                          }
+                        }
+                      }
+                    }
+                  } else {
+                    // For iOS, use Sharing
+                    if (await Sharing.isAvailableAsync()) {
+                      await Sharing.shareAsync(finalUri, {
+                        mimeType: api.getMimeType(downloadedFile.fileName),
+                        dialogTitle: 'Open translated file',
+                      });
+                    }
+                  }
+                } catch (error) {
+                  console.error('Error opening file:', error);
+                  
+                  // Fallback to Sharing
+                  if (await Sharing.isAvailableAsync()) {
+                    await Sharing.shareAsync(finalUri, {
+                      mimeType: api.getMimeType(downloadedFile.fileName),
+                      dialogTitle: 'Open with document reader...',
+                    });
+                  } else {
+                    Alert.alert(
+                      'File Downloaded',
+                      `File downloaded as: ${downloadedFile.fileName}\n\nPlease open it from your file manager.`
+                    );
+                  }
+                }
+              }
+            },
+            {
+              text: 'Done',
+              style: 'cancel',
+              onPress: () => {
+                setDownloadedFile(null);
+              }
+            }
+          ]
+        );
+      } else {
+        throw new Error('Downloaded file is empty or does not exist');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      Alert.alert('Download Error', `Failed to download translated file: ${error.message}`);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const pickDocument = async () => {
@@ -163,11 +327,10 @@ export default function FileUploadScreen({ navigation }) {
       setIsUploading(true);
       setProgress('Connecting to translation service...');
 
-      // Try to initialize WebSocket connection (but don't wait for success)
-      console.log('Attempting WebSocket connection (non-blocking)...');
-      initializeWebSocket().catch(error => {
-        console.error('WebSocket initialization failed:', error);
-      });
+      // Initialize WebSocket and get socketId
+      console.log('Initializing WebSocket connection...');
+      const socketId = await initializeWebSocket();
+      console.log('Using socketId for upload:', socketId);
 
       setProgress('Uploading file...');
 
@@ -176,6 +339,7 @@ export default function FileUploadScreen({ navigation }) {
         uri: fileInfo.uri,
         type: fileInfo.type,
         name: fileInfo.name,
+        size: fileInfo.size, // Add file size
       };
 
       console.log('Uploading file with details:', {
@@ -329,6 +493,32 @@ export default function FileUploadScreen({ navigation }) {
             </TouchableOpacity>
           )}
         </View>
+
+        {/* Download button section */}
+        {downloadedFile && (
+          <View style={styles.downloadSection}>
+            <View style={styles.downloadInfo}>
+              <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+              <Text style={styles.downloadText}>
+                Translation completed! File: {downloadedFile.fileName}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.downloadButton}
+              onPress={handleDownload}
+              disabled={isDownloading}
+            >
+              {isDownloading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name="download" size={24} color="#fff" />
+              )}
+              <Text style={styles.downloadButtonText}>
+                {isDownloading ? 'Downloading...' : 'Download File'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {(isUploading || isProcessing) && (
           <View style={styles.progressContainer}>
@@ -601,6 +791,48 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   uploadButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 10,
+  },
+  downloadSection: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 15,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  downloadInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  downloadText: {
+    fontSize: 16,
+    color: '#333',
+    marginLeft: 10,
+    flex: 1,
+  },
+  downloadButton: {
+    backgroundColor: '#4CAF50',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  downloadButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',

@@ -61,6 +61,11 @@ class TranslationAPI {
               this.socket = null;
               this.socketId = null;
             });
+            
+            // Add debugging for all events
+            this.socket.onAny((eventName, ...args) => {
+              console.log(`[WebSocket] Received event: ${eventName}`, args);
+            });
           } catch (error) {
             console.error('WebSocket initialization failed:', error);
           }
