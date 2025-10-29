@@ -12,11 +12,11 @@ const getBaseUrl = () => {
 
   // For Android Emulator, use 10.0.2.2 to access host machine
   if (Platform.OS === 'android' && !Constants.isDevice) {
-    return 'http://10.0.2.2:5010';
+    return 'http://192.168.1.5:5010';
   }
 
   // For iOS Simulator or physical devices, use local network IP
-  return 'http://10.13.1.9:5010';
+  return 'http://192.168.1.5:5010';
 };
 
 const getWsUrl = () => {
@@ -25,10 +25,10 @@ const getWsUrl = () => {
   }
 
   if (Platform.OS === 'android' && !Constants.isDevice) {
-    return 'ws://10.0.2.2:5010';
+    return 'ws://192.168.1.5:5010';
   }
 
-  return 'ws://10.13.1.9:5010';
+  return 'ws://192.168.1.5:5010';
 };
 
 export const API_BASE_URL = getBaseUrl();

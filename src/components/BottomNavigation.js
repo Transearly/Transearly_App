@@ -65,10 +65,14 @@ export default function BottomNavigation({ navigation, activeScreen }) {
 
 const styles = StyleSheet.create({
   bottomNav: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingVertical: 15,
-    paddingBottom: 30,
+    paddingBottom: 32,
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,

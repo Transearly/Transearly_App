@@ -143,7 +143,7 @@ class TranslationAPI {
    * @param {boolean} isUserPremium - Whether the user is premium
    * @returns {Promise<Object>} Upload result with jobId
    */
-  async uploadFileForTranslation(file, targetLanguage = 'English', isUserPremium = false) {
+  async uploadFileForTranslation(file, targetLanguage = 'English', isUserPremium = true) {
     try {
       // Check if we have a socketId (either from WebSocket or fallback)
       if (!this.socketId) {

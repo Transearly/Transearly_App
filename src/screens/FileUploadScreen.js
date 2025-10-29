@@ -54,6 +54,16 @@ export default function FileUploadScreen({ navigation }) {
   const [isDownloading, setIsDownloading] = useState(false);
   const api = translationAPI;
 
+  const resetState = () => {
+    console.log('Resetting state to initial...');
+    setSelectedFile(null);
+    setDownloadedFile(null);
+    setProgress('');
+    setIsUploading(false);
+    setIsProcessing(false);
+    setIsDownloading(false);
+  };
+
   useEffect(() => {
     // Don't initialize WebSocket on component mount
     // It will be initialized when user actually uploads a file
@@ -255,6 +265,7 @@ export default function FileUploadScreen({ navigation }) {
                         }
                       }
                     }
+                    resetState();
                   } else {
                     // For iOS, use Sharing
                     if (await Sharing.isAvailableAsync()) {
@@ -263,6 +274,7 @@ export default function FileUploadScreen({ navigation }) {
                         dialogTitle: 'Open translated file',
                       });
                     }
+                    resetState();
                   }
                 } catch (error) {
                   console.error('Error opening file:', error);
@@ -286,7 +298,7 @@ export default function FileUploadScreen({ navigation }) {
               text: 'Done',
               style: 'cancel',
               onPress: () => {
-                setDownloadedFile(null);
+                resetState();
               }
             }
           ]
@@ -369,7 +381,7 @@ export default function FileUploadScreen({ navigation }) {
       const response = await api.uploadFileForTranslation(
         formFile,
         targetLang,
-        false // isUserPremium
+        true // isUserPremium
       );
 
       setIsUploading(false);
@@ -413,9 +425,6 @@ export default function FileUploadScreen({ navigation }) {
           <Ionicons name="arrow-back" size={28} color="#333" />
         </TouchableOpacity>
         <Text style={styles.title}>File Translation</Text>
-        <TouchableOpacity style={styles.premiumButton}>
-          <Ionicons name="diamond-outline" size={24} color="#FFB800" />
-        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>

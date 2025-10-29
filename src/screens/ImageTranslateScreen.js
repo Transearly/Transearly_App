@@ -282,21 +282,114 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
   },
+
+  // ==== Header ====
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 40,
+    paddingBottom: 12,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  languageBadge: {
+    fontSize: 24,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+
+  // ==== Image Preview (phần hiển thị ảnh chụp) ====
+  imagePreview: {
+    height: '60%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 24,
+    marginTop: 10,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#5B67F5',
+    borderRadius: 16,
+    overflow: 'hidden', // ✨ cắt ảnh trong khung
+    backgroundColor: '#000',
+    position: 'relative',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+
+  // ==== Detected text segments (highlight text vùng OCR) ====
   detectedSegment: {
     position: 'absolute',
     borderWidth: 2,
     borderColor: '#5B67F5',
     borderRadius: 2,
-    backgroundColor: 'rgba(91, 103, 245, 0.1)',
+    backgroundColor: 'rgba(91, 103, 245, 0.12)',
   },
+
+  // ==== Processing Overlay ====
+  processingContainer: {
+    position: 'absolute',
+    bottom: 120,
+    alignSelf: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+  },
+  processingText: {
+    color: '#fff',
+    marginTop: 10,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+
+  // ==== Actions (Translate / Retranslate buttons) ====
+  actionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#5B67F5',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    shadowColor: '#5B67F5',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  actionText: {
+    color: '#fff',
+    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+
+  // ==== Translation Popup ====
   translationPopup: {
     position: 'absolute',
     bottom: 100,
     left: 20,
     right: 20,
     maxHeight: 300,
-    backgroundColor: 'rgba(0, 0, 0, 0.95)',
-    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#5B67F5',
   },
@@ -305,7 +398,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(91, 103, 245, 0.3)',
   },
@@ -338,65 +430,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 40,
-    paddingBottom: 10,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  imagePreview: {
-    flex: 1,
-    backgroundColor: '#000',
-    position: 'relative',
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'contain',
-  },
-  processingContainer: {
-    position: 'absolute',
-    bottom: 100,
-    alignSelf: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    padding: 20,
-    borderRadius: 10,
-  },
-  processingText: {
-    color: '#fff',
-    marginTop: 10,
-    fontSize: 16,
-  },
-  actionsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(91, 103, 245, 0.9)',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-  },
-  actionText: {
-    color: '#fff',
-    marginLeft: 10,
-    fontSize: 16,
-    fontWeight: '600',
-  },
+
+  // ==== Language Modal ====
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -443,12 +478,5 @@ const styles = StyleSheet.create({
   languageOptionTextActive: {
     color: '#5B67F5',
     fontWeight: 'bold',
-  },
-  languageBadge: {
-    fontSize: 24,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
   },
 });

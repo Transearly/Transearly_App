@@ -18,10 +18,12 @@ import { Audio } from 'expo-av';
 import translationAPI from '../services/api';
 import BottomNavigation from '../components/BottomNavigation';
 import { SOURCE_LANGUAGES, TARGET_LANGUAGES, getLanguageName } from '../constants/languages';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
 export default function VoiceRecordingScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const [isRecording, setIsRecording] = useState(false);
   const [recording, setRecording] = useState(null);
   const [pulseAnim] = useState(new Animated.Value(1));
@@ -199,492 +201,198 @@ export default function VoiceRecordingScreen({ navigation }) {
   };
 
   return (
-    <LinearGradient
-      colors={['#f0f4ff', '#e8f5f0']}
-      style={styles.container}
-    >
-      <View style={styles.header}>
+    <LinearGradient colors={['#f0f4ff', '#e8f5f0']} style={styles.container}>
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={28} color="#333" />
+          <Ionicons name="arrow-back" size={26} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.title}>Voice Translation</Text>
-        <View style={styles.headerIcons}>
-          <Ionicons name="diamond-outline" size={24} color="#FFB800" style={styles.icon} />
-          <TouchableOpacity>
-            <Ionicons name="settings-outline" size={24} color="#5B67F5" />
-          </TouchableOpacity>
+        <Text style={styles.headerTitle}>Voice Translation</Text>
+        <TouchableOpacity>
+          <Ionicons name="settings-outline" size={22} color="#5B67F5" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Language Selector */}
+      <View style={styles.languageRow}>
+        <TouchableOpacity style={styles.langButton} onPress={() => setShowSourcePicker(true)}>
+          <Text style={styles.langText}>
+            {SOURCE_LANGUAGES.find(l => l.code === sourceLang)?.flag}{' '}
+            {SOURCE_LANGUAGES.find(l => l.code === sourceLang)?.name}
+          </Text>
+          <Ionicons name="chevron-down" size={16} color="#5B67F5" />
+        </TouchableOpacity>
+
+        <View style={styles.swapContainer}>
+          <Ionicons name="arrow-forward" size={22} color="#5B67F5" />
         </View>
-      </View>
 
-      <View style={styles.languageSelector}>
-        <TouchableOpacity
-          style={styles.languageButton}
-          onPress={() => setShowSourcePicker(true)}
-        >
-          <Text style={styles.languageText}>
-            {SOURCE_LANGUAGES.find(l => l.code === sourceLang)?.flag} {SOURCE_LANGUAGES.find(l => l.code === sourceLang)?.name}
-          </Text>
-          <Ionicons name="chevron-down" size={16} color="#5B67F5" />
-        </TouchableOpacity>
-        <Ionicons name="arrow-forward" size={24} color="#5B67F5" />
-        <TouchableOpacity
-          style={styles.languageButton}
-          onPress={() => setShowTargetPicker(true)}
-        >
-          <Text style={styles.languageText}>
-            {TARGET_LANGUAGES.find(l => l.code === targetLang)?.flag} {TARGET_LANGUAGES.find(l => l.code === targetLang)?.name}
+        <TouchableOpacity style={styles.langButton} onPress={() => setShowTargetPicker(true)}>
+          <Text style={styles.langText}>
+            {TARGET_LANGUAGES.find(l => l.code === targetLang)?.flag}{' '}
+            {TARGET_LANGUAGES.find(l => l.code === targetLang)?.name}
           </Text>
           <Ionicons name="chevron-down" size={16} color="#5B67F5" />
         </TouchableOpacity>
       </View>
 
+      {/* Main Content */}
       {showResult ? (
-        // Show translation result
-        <View style={styles.resultContainer}>
+        <ScrollView style={styles.resultWrapper} showsVerticalScrollIndicator={false}>
           <View style={styles.resultCard}>
-            <View style={styles.labelContainer}>
-              <Text style={styles.resultLabel}>Original</Text>
-              {detectedSourceLang && (
-                <Text style={styles.languageLabel}>({detectedSourceLang})</Text>
-              )}
+            <View style={styles.resultHeader}>
+              <Text style={styles.resultLabel}>Original ({detectedSourceLang})</Text>
+              <TouchableOpacity onPress={() => handleCopyText(originalText, 'Original')}>
+                <Ionicons name="copy-outline" size={18} color="#5B67F5" />
+              </TouchableOpacity>
             </View>
-            <Text style={styles.resultText}>{originalText}</Text>
-            <TouchableOpacity
-              style={styles.copyButton}
-              onPress={() => handleCopyText(originalText, 'Original text')}
-            >
-              <Ionicons name="copy-outline" size={20} color="#5B67F5" />
-              <Text style={styles.copyButtonText}>Copy</Text>
-            </TouchableOpacity>
+            <Text style={styles.originalText}>{originalText}</Text>
           </View>
 
-          <View style={styles.arrowContainer}>
-            <Ionicons name="arrow-down" size={24} color="#5B67F5" />
+          <View style={styles.arrowDown}>
+            <Ionicons name="arrow-down" size={26} color="#5B67F5" />
           </View>
 
-          <View style={[styles.resultCard, styles.translatedCard]}>
-            <View style={styles.labelContainer}>
-              <Text style={[styles.resultLabel, { color: '#fff', opacity: 0.8 }]}>Translation</Text>
-              {detectedTargetLang && (
-                <Text style={[styles.languageLabel, { color: '#fff', opacity: 0.7 }]}>({detectedTargetLang})</Text>
-              )}
+          <View style={[styles.resultCard, styles.resultCardBlue]}>
+            <View style={styles.resultHeader}>
+              <Text style={[styles.resultLabel, { color: '#fff' }]}>Translation ({detectedTargetLang})</Text>
+              <TouchableOpacity onPress={() => handleCopyText(translatedText, 'Translation')}>
+                <Ionicons name="copy-outline" size={18} color="#fff" />
+              </TouchableOpacity>
             </View>
             <Text style={styles.translatedText}>{translatedText}</Text>
-            <TouchableOpacity
-              style={[styles.copyButton, styles.copyButtonWhite]}
-              onPress={() => handleCopyText(translatedText, 'Translation')}
-            >
-              <Ionicons name="copy-outline" size={20} color="#fff" />
-              <Text style={[styles.copyButtonText, { color: '#fff' }]}>Copy</Text>
-            </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            style={styles.tryAgainButton}
-            onPress={handleTryAgain}
-          >
-            <Ionicons name="refresh" size={24} color="#fff" />
-            <Text style={styles.tryAgainText}>Try Again</Text>
+          <TouchableOpacity style={styles.tryButton} onPress={handleTryAgain}>
+            <Ionicons name="refresh" size={22} color="#fff" />
+            <Text style={styles.tryText}>Try Again</Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       ) : (
-        <>
-          <View style={styles.recordingArea}>
-            {isProcessing ? (
-              <View style={styles.processingContainer}>
-                <ActivityIndicator size="large" color="#5B67F5" />
-                <Text style={styles.processingText}>Processing audio...</Text>
-              </View>
-            ) : (
-              <>
-                <Animated.View
-                  style={[
-                    styles.pulseCircle,
-                    {
-                      transform: [{ scale: isRecording ? pulseAnim : 1 }],
-                      opacity: isRecording ? 0.3 : 0,
-                    },
-                  ]}
-                />
-                <TouchableOpacity
-                  style={[
-                    styles.recordButton,
-                    isRecording && styles.recordingButton,
-                  ]}
-                  onPress={isRecording ? stopRecording : startRecording}
-                  disabled={isProcessing}
-                >
-                  <Ionicons
-                    name={isRecording ? "square" : "mic"}
-                    size={40}
-                    color="#fff"
-                  />
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
+        <View style={styles.centerArea}>
+          {isProcessing ? (
+            <View style={{ alignItems: 'center' }}>
+              <ActivityIndicator size="large" color="#5B67F5" />
+              <Text style={styles.processingText}>Processing audio...</Text>
+            </View>
+          ) : (
+            <>
+              <Animated.View
+                style={[
+                  styles.pulseCircle,
+                  { transform: [{ scale: pulseAnim }], opacity: isRecording ? 0.3 : 0 },
+                ]}
+              />
+              <TouchableOpacity
+                style={[styles.micButton, isRecording && styles.micActive]}
+                onPress={isRecording ? stopRecording : startRecording}
+                disabled={isProcessing}
+              >
+                <Ionicons name={isRecording ? 'square' : 'mic'} size={40} color="#fff" />
+              </TouchableOpacity>
 
-          <View style={styles.instructionArea}>
-            <Text style={styles.instructionTitle}>
-              {isRecording ? 'Recording...' : 'Tap And Hold'}
-            </Text>
-            <Text style={styles.instructionSubtitle}>
-              {isRecording ? 'Release to translate' : 'To Record'}
-            </Text>
-          </View>
-        </>
+              <Text style={styles.recordHint}>
+                {isRecording ? 'Recording... Release to translate' : 'Tap to start recording'}
+              </Text>
+            </>
+          )}
+        </View>
       )}
 
-      {/* Source Language Picker Modal */}
-      <Modal
-        visible={showSourcePicker}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowSourcePicker(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Source Language</Text>
-              <TouchableOpacity onPress={() => setShowSourcePicker(false)}>
-                <Ionicons name="close" size={28} color="#333" />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.languageList}>
-              {SOURCE_LANGUAGES.map((lang) => (
-                <TouchableOpacity
-                  key={lang.code}
-                  style={[
-                    styles.languageItem,
-                    sourceLang === lang.code && styles.languageItemActive,
-                  ]}
-                  onPress={() => {
-                    setSourceLang(lang.code);
-                    setShowSourcePicker(false);
-                  }}
-                >
-                  <Text style={styles.languageFlag}>{lang.flag}</Text>
-                  <Text style={[
-                    styles.languageName,
-                    sourceLang === lang.code && styles.languageNameActive,
-                  ]}>
-                    {lang.name}
-                  </Text>
-                  {sourceLang === lang.code && (
-                    <Ionicons name="checkmark-circle" size={24} color="#5B67F5" />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Target Language Picker Modal */}
-      <Modal
-        visible={showTargetPicker}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowTargetPicker(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Target Language</Text>
-              <TouchableOpacity onPress={() => setShowTargetPicker(false)}>
-                <Ionicons name="close" size={28} color="#333" />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.languageList}>
-              {TARGET_LANGUAGES.map((lang) => (
-                <TouchableOpacity
-                  key={lang.code}
-                  style={[
-                    styles.languageItem,
-                    targetLang === lang.code && styles.languageItemActive,
-                  ]}
-                  onPress={() => {
-                    setTargetLang(lang.code);
-                    setShowTargetPicker(false);
-                  }}
-                >
-                  <Text style={styles.languageFlag}>{lang.flag}</Text>
-                  <Text style={[
-                    styles.languageName,
-                    targetLang === lang.code && styles.languageNameActive,
-                  ]}>
-                    {lang.name}
-                  </Text>
-                  {targetLang === lang.code && (
-                    <Ionicons name="checkmark-circle" size={24} color="#5B67F5" />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      <BottomNavigation navigation={navigation} activeScreen="voice" />
+      {/* Bottom Navigation */}
+      <View style={{ paddingBottom: insets.bottom }}>
+        <BottomNavigation navigation={navigation} activeScreen="voice" />
+      </View>
     </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', paddingHorizontal: 20,
+    paddingBottom: 10,
+  },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#333' },
+
+  languageRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  headerIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  icon: {
-    marginRight: 15,
-  },
-  languageSelector: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 30,
-    marginTop: 20,
-  },
-  languageButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  languageText: {
-    fontSize: 16,
-    color: '#5B67F5',
-    fontWeight: '600',
-    marginRight: 8,
-  },
-  swapButton: {
-    backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 50,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  recordingArea: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 40,
+    marginTop: 10,
+    marginBottom: 20,
+    paddingHorizontal: 10,
   },
-  processingContainer: {
+  langButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 32,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  processingText: {
-    marginTop: 20,
-    fontSize: 16,
-    color: '#666',
+  langText: { fontSize: 16, color: '#5B67F5', fontWeight: '600', marginRight: 6 },
+  swapContainer: {
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+
+  centerArea: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   pulseCircle: {
     position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
     backgroundColor: '#5B67F5',
   },
-  recordButton: {
+  micButton: {
     width: 120,
     height: 120,
     borderRadius: 60,
     backgroundColor: '#5B67F5',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#5B67F5',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
     elevation: 8,
   },
-  recordingButton: {
-    backgroundColor: '#FF4458',
-    shadowColor: '#FF4458',
-  },
-  instructionArea: {
-    alignItems: 'center',
-    marginBottom: 60,
-  },
-  instructionTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  instructionSubtitle: {
-    fontSize: 16,
-    color: '#999',
-  },
-  resultContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    marginTop: 20,
-  },
+  micActive: { backgroundColor: '#FF4458', shadowColor: '#FF4458' },
+  recordHint: { marginTop: 30, fontSize: 16, color: '#555', fontWeight: '500' },
+
+  processingText: { marginTop: 15, fontSize: 16, color: '#666' },
+
+  resultWrapper: { paddingHorizontal: 20, marginTop: 10 },
   resultCard: {
     backgroundColor: '#fff',
     borderRadius: 20,
     padding: 20,
-    marginVertical: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    marginBottom: 15,
+    elevation: 4,
   },
-  translatedCard: {
-    backgroundColor: '#5B67F5',
-  },
-  labelContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  resultLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#999',
-    textTransform: 'uppercase',
-  },
-  languageLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginLeft: 8,
-    fontStyle: 'italic',
-  },
-  resultText: {
-    fontSize: 18,
-    color: '#333',
-    lineHeight: 28,
-  },
-  translatedText: {
-    fontSize: 20,
-    color: '#fff',
-    fontWeight: '600',
-    lineHeight: 30,
-  },
-  arrowContainer: {
-    alignSelf: 'center',
-    marginVertical: 10,
-  },
-  tryAgainButton: {
-    flexDirection: 'row',
-    backgroundColor: '#5B67F5',
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 20,
-    alignSelf: 'center',
-    shadowColor: '#5B67F5',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  tryAgainText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-    marginLeft: 10,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    maxHeight: '70%',
-    paddingBottom: 20,
-  },
-  modalHeader: {
+  resultCardBlue: { backgroundColor: '#5B67F5' },
+  resultHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    marginBottom: 8,
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  languageList: {
-    maxHeight: 400,
-  },
-  languageItem: {
+  resultLabel: { fontSize: 14, fontWeight: '600', color: '#888' },
+  originalText: { fontSize: 18, color: '#333', lineHeight: 26 },
+  translatedText: { fontSize: 20, color: '#fff', lineHeight: 30, fontWeight: '600' },
+  arrowDown: { alignSelf: 'center', marginVertical: 8 },
+  tryButton: {
     flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
+    backgroundColor: '#5B67F5',
+    alignSelf: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 26,
+    borderRadius: 28,
+    marginTop: 15,
   },
-  languageItemActive: {
-    backgroundColor: '#f0f4ff',
-  },
-  languageFlag: {
-    fontSize: 28,
-    marginRight: 15,
-  },
-  languageName: {
-    flex: 1,
-    fontSize: 16,
-    color: '#333',
-  },
-  languageNameActive: {
-    color: '#5B67F5',
-    fontWeight: '600',
-  },
-  copyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-end',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 15,
-    backgroundColor: '#f0f4ff',
-    marginTop: 10,
-  },
-  copyButtonWhite: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  copyButtonText: {
-    fontSize: 14,
-    color: '#5B67F5',
-    fontWeight: '600',
-    marginLeft: 6,
-  },
+  tryText: { color: '#fff', fontSize: 16, fontWeight: '600', marginLeft: 8 },
 });

@@ -97,7 +97,9 @@ export default function CameraTranslateScreen({ navigation }) {
           <View style={[styles.corner, styles.topRight]} />
           <View style={[styles.corner, styles.bottomLeft]} />
           <View style={[styles.corner, styles.bottomRight]} />
-          <Text style={styles.scanText}>Position text within frame</Text>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={styles.scanText}>Position text within frame</Text>
+          </View>
         </View>
 
         <View style={styles.controls}>
@@ -183,7 +185,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#fff',
   },
@@ -195,7 +197,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(91, 103, 245, 0.9)',
     paddingHorizontal: 20,
     paddingVertical: 10,
-    borderRadius: 20,
+    borderRadius: 24,
   },
   languageText: {
     color: '#fff',
@@ -203,15 +205,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   scanFrame: {
-    flex: 1,
+    height: '60%',
     justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: 40,
+    marginHorizontal: 32,
+    marginBottom: 32,
   },
   corner: {
     position: 'absolute',
-    width: 40,
-    height: 40,
+    width: 32,
+    height: 32,
     borderColor: '#5B67F5',
   },
   topLeft: {
@@ -240,8 +243,7 @@ const styles = StyleSheet.create({
   },
   scanText: {
     color: '#fff',
-    fontSize: 16,
-    marginTop: 100,
+    fontSize: 18,
   },
   controls: {
     flexDirection: 'row',
@@ -268,17 +270,17 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.5)',
   },
   captureButtonInner: {
-    width: 64,
-    height: 64,
+    width: 60,
+    height: 60,
     borderRadius: 32,
     backgroundColor: '#5B67F5',
   },
   imagePreview: {
-    flex: 1,
+    height: '60%',
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#000',
-    position: 'relative', // Needed for absolute positioning of translated segments
+    position: 'relative',
   },
   image: {
     width: '100%',

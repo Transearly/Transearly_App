@@ -48,7 +48,7 @@ export default function TextTranslatorScreen({ navigation }) {
       const response = await translationAPI.uploadFileForTranslation(
         file,
         targetLang,
-        false // isUserPremium = false
+        true // isUserPremium = false
       );
 
       if (response && response.jobId) {
@@ -136,13 +136,12 @@ export default function TextTranslatorScreen({ navigation }) {
           <View style={styles.headerLeft} />
           <Text style={styles.title}>Text Translator</Text>
           <View style={styles.headerIcons}>
-            <Ionicons name="diamond-outline" size={24} color="#FFB800" style={styles.icon} />
             <Ionicons name="settings-outline" size={24} color="#5B67F5" />
           </View>
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.languageSelector}>
+          <View style={[styles.languageSelector, { alignItems: 'center' }]}>
             <TouchableOpacity
               style={styles.languageButton}
               onPress={() => setShowSourcePicker(true)}
@@ -154,7 +153,7 @@ export default function TextTranslatorScreen({ navigation }) {
             </TouchableOpacity>
 
             <View style={styles.arrowContainer}>
-              <Ionicons name="arrow-forward" size={28} color="#5B67F5" />
+              <Ionicons name="arrow-forward" size={22} color="#5B67F5" />
             </View>
 
             <TouchableOpacity
@@ -195,7 +194,7 @@ export default function TextTranslatorScreen({ navigation }) {
               </View>
 
               <View style={styles.arrowContainer}>
-                <Ionicons name="arrow-down" size={24} color="#5B67F5" />
+                <Ionicons name="arrow-down" size={22} color="#5B67F5" />
               </View>
 
               <View style={[styles.resultCard, styles.translatedCard]}>
@@ -440,6 +439,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
+    paddingTop: 16,
     marginBottom: 20,
   },
   headerLeft: {
@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: '#333',
     flex: 1,
     textAlign: 'center',
@@ -476,28 +476,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#fff',
     paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 25,
+    paddingHorizontal: 16,
+    borderRadius: 32,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
+
   languageText: {
     fontSize: 16,
     color: '#5B67F5',
     fontWeight: '600',
     marginRight: 8,
   },
+
   arrowContainer: {
-    padding: 10,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+
   inputCard: {
     backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
     minHeight: 150,
     elevation: 2,
     shadowColor: '#000',
