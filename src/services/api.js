@@ -358,6 +358,74 @@ class TranslationAPI {
       throw this.handleError(error);
     }
   }
+
+  /**
+   * Translate audio using Google Speech-to-Text + AI Translation
+   * @param {Object} audioFile - Audio file object with uri, type, name
+   * @param {string} sourceLanguage - Source language code (e.g., 'auto', 'vi', 'en')
+   * @param {string} targetLanguage - Target language name (e.g., 'Vietnamese', 'English')
+   * @returns {Promise<Object>} Translation result with transcribed and translated text
+   */
+  async translateAudio(audioFile, sourceLanguage = 'auto', targetLanguage = 'Vietnamese') {
+    try {
+      console.log('translateAudio - API Base URL:', API_BASE_URL);
+      console.log('translateAudio - Endpoint:', API_ENDPOINTS.TRANSLATE_AUDIO);
+      console.log('translateAudio - Full URL:', API_BASE_URL + API_ENDPOINTS.TRANSLATE_AUDIO);
+      console.log('translateAudio - Request payload:', {
+        fileName: audioFile.name,
+        fileType: audioFile.type,
+        sourceLanguage,
+        targetLanguage
+      });
+
+      // Create FormData for audio upload
+      const formData = new FormData();
+
+      // Create proper file object for React Native
+      const fileObj = {
+        uri: audioFile.uri,
+        type: audioFile.type || 'audio/mpeg',
+        name: audioFile.name || 'recording.mp3',
+      };
+
+      formData.append('file', fileObj);
+      formData.append('sourceLanguage', sourceLanguage);
+      formData.append('targetLanguage', targetLanguage);
+
+      const response = await this.api.post(API_ENDPOINTS.TRANSLATE_AUDIO, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 90000, // 90 second timeout for audio processing (speech-to-text + translation)
+      });
+
+      console.log('translateAudio - Response status:', response.status);
+      console.log('translateAudio - Response data:', response.data);
+
+      if (!response.data) {
+        throw new Error('No response data received');
+      }
+
+      // Handle both direct response and wrapped response
+      const data = response.data.data || response.data;
+
+      return {
+        success: data.success,
+        originalText: data.originalText,
+        translatedText: data.translatedText,
+        targetLanguage: targetLanguage,
+        audioDetails: data.audioDetails || {}
+      };
+    } catch (error) {
+      console.error('Audio Translation API error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        response: error.response?.data
+      });
+      throw this.handleError(error);
+    }
+  }
 }
 
 // Create and export a singleton instance

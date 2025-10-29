@@ -16,7 +16,7 @@ const getBaseUrl = () => {
   }
 
   // For iOS Simulator or physical devices, use local network IP
-  return 'http://192.168.102.92:5010';
+  return 'http://10.13.1.9:5010';
 };
 
 const getWsUrl = () => {
@@ -28,7 +28,7 @@ const getWsUrl = () => {
     return 'ws://10.0.2.2:5010';
   }
 
-  return 'ws://192.168.102.92:5010';
+  return 'ws://10.13.1.9:5010';
 };
 
 export const API_BASE_URL = getBaseUrl();
@@ -39,6 +39,7 @@ export const API_ENDPOINTS = {
   DOWNLOAD_FILE: (fileName) => `/translator/download/${fileName}`,
   TRANSLATE_TEXT: '/translator/text',
   TRANSLATE_IMAGE: '/translator/image',
+  TRANSLATE_AUDIO: '/translator/audio',
 };
 
 export const WS_EVENTS = {

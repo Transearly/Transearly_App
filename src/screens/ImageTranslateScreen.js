@@ -15,19 +15,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import translationAPI from '../services/api';
 import BottomNavigation from '../components/BottomNavigation';
+import { TARGET_LANGUAGES, getLanguageName } from '../constants/languages';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-
-const LANGUAGES = [
-  { code: 'vi', name: 'Vietnamese', flag: '🇻🇳' },
-  { code: 'en', name: 'English', flag: '🇬🇧' },
-  { code: 'es', name: 'Spanish', flag: '🇪🇸' },
-  { code: 'fr', name: 'French', flag: '🇫🇷' },
-  { code: 'de', name: 'German', flag: '🇩🇪' },
-  { code: 'ja', name: 'Japanese', flag: '🇯🇵' },
-  { code: 'ko', name: 'Korean', flag: '🇰🇷' },
-  { code: 'zh', name: 'Chinese', flag: '🇨🇳' },
-];
 
 export default function ImageTranslateScreen({ route, navigation }) {
   const { imageUri, targetLanguage } = route.params;
@@ -41,6 +31,9 @@ export default function ImageTranslateScreen({ route, navigation }) {
   const [selectedSegment, setSelectedSegment] = useState(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const imageRef = useRef(null);
+
+  // Find selected language from constants
+  const selectedLanguage = TARGET_LANGUAGES.find(lang => getLanguageName(lang.code) === targetLang) || TARGET_LANGUAGES[0];
 
   useEffect(() => {
     if (selectedSegment) {
@@ -90,8 +83,6 @@ export default function ImageTranslateScreen({ route, navigation }) {
     const { width, height } = event.nativeEvent.source;
     setImageDimensions({ width, height });
   };
-
-  const selectedLanguage = LANGUAGES.find(lang => lang.name === targetLang) || LANGUAGES[0];
 
   return (
     <View style={styles.container}>
@@ -211,26 +202,26 @@ export default function ImageTranslateScreen({ route, navigation }) {
               </TouchableOpacity>
             </View>
             <ScrollView>
-              {LANGUAGES.map((lang) => (
+              {TARGET_LANGUAGES.map((lang) => (
                 <TouchableOpacity
                   key={lang.code}
                   style={[
                     styles.languageOption,
-                    targetLang === lang.name && styles.languageOptionActive
+                    getLanguageName(lang.code) === targetLang && styles.languageOptionActive
                   ]}
                   onPress={() => {
-                    setTargetLang(lang.name);
+                    setTargetLang(getLanguageName(lang.code));
                     setShowLanguagePicker(false);
                   }}
                 >
                   <Text style={styles.languageFlag}>{lang.flag}</Text>
                   <Text style={[
                     styles.languageOptionText,
-                    targetLang === lang.name && styles.languageOptionTextActive
+                    getLanguageName(lang.code) === targetLang && styles.languageOptionTextActive
                   ]}>
                     {lang.name}
                   </Text>
-                  {targetLang === lang.name && (
+                  {getLanguageName(lang.code) === targetLang && (
                     <Ionicons name="checkmark" size={24} color="#5B67F5" />
                   )}
                 </TouchableOpacity>
@@ -264,16 +255,22 @@ export default function ImageTranslateScreen({ route, navigation }) {
               <Ionicons name="close" size={24} color="#fff" />
             </TouchableOpacity>
           </View>
-          <View style={styles.popupContent}>
-            <View style={styles.textSection}>
-              <Text style={styles.textLabel}>Original:</Text>
-              <Text style={styles.originalText}>{selectedSegment.original}</Text>
+          <ScrollView 
+            style={styles.popupScrollContent}
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}
+          >
+            <View style={styles.popupContent}>
+              <View style={styles.textSection}>
+                <Text style={styles.textLabel}>Original:</Text>
+                <Text style={styles.originalText}>{selectedSegment.original}</Text>
+              </View>
+              <View style={styles.textSection}>
+                <Text style={styles.textLabel}>Translated:</Text>
+                <Text style={styles.translatedText}>{selectedSegment.translated}</Text>
+              </View>
             </View>
-            <View style={styles.textSection}>
-              <Text style={styles.textLabel}>Translated:</Text>
-              <Text style={styles.translatedText}>{selectedSegment.translated}</Text>
-            </View>
-          </View>
+          </ScrollView>
         </Animated.View>
       )}
     </View>
@@ -297,9 +294,9 @@ const styles = StyleSheet.create({
     bottom: 100,
     left: 20,
     right: 20,
+    maxHeight: 300,
     backgroundColor: 'rgba(0, 0, 0, 0.95)',
     borderRadius: 12,
-    padding: 16,
     borderWidth: 1,
     borderColor: '#5B67F5',
   },
@@ -307,14 +304,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    padding: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(91, 103, 245, 0.3)',
   },
   popupTitle: {
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
   },
+  popupScrollContent: {
+    maxHeight: 220,
+  },
   popupContent: {
+    padding: 16,
     gap: 12,
   },
   textSection: {

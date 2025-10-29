@@ -10,32 +10,22 @@ import {
   Alert,
   Modal,
   SafeAreaView,
+  Clipboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import translationAPI from '../services/api';
 import BottomNavigation from '../components/BottomNavigation';
-
-const LANGUAGES = [
-  { code: 'auto', name: 'Auto Detect', flag: '🌐' },
-  { code: 'en', name: 'English', flag: '🇬🇧' },
-  { code: 'vi', name: 'Vietnamese', flag: '🇻🇳' },
-  { code: 'es', name: 'Spanish', flag: '🇪🇸' },
-  { code: 'fr', name: 'French', flag: '🇫🇷' },
-  { code: 'de', name: 'German', flag: '🇩🇪' },
-  { code: 'ja', name: 'Japanese', flag: '🇯🇵' },
-  { code: 'ko', name: 'Korean', flag: '🇰🇷' },
-  { code: 'zh', name: 'Chinese', flag: '🇨🇳' },
-];
+import { SOURCE_LANGUAGES, TARGET_LANGUAGES, getLanguageName } from '../constants/languages';
 
 export default function TextTranslatorScreen({ navigation }) {
   const [sourceText, setSourceText] = useState('');
   const [translatedText, setTranslatedText] = useState('');
   const [sourceLang, setSourceLang] = useState('auto');
-  const [sourceLangName, setSourceLangName] = useState('Auto Detect');
   const [targetLang, setTargetLang] = useState('vi');
-  const [targetLangName, setTargetLangName] = useState('Vietnamese');
   const [isTranslating, setIsTranslating] = useState(false);
+  const [showSourcePicker, setShowSourcePicker] = useState(false);
   const [showTargetPicker, setShowTargetPicker] = useState(false);
+  const [showResult, setShowResult] = useState(false);
 
   // Hàm xử lý dịch text dưới dạng file
   const handleTranslateAsFile = async () => {
@@ -90,15 +80,17 @@ export default function TextTranslatorScreen({ navigation }) {
 
     setIsTranslating(true);
     try {
+      const targetLanguageName = getLanguageName(targetLang);
+
       console.log('Calling translation API with:', {
         text: sourceText.substring(0, 50) + '...',
-        targetLanguage: targetLangName
+        targetLanguage: targetLanguageName
       });
 
       // Call the real translation API (AI auto-detects source language)
       const result = await translationAPI.translateText(
         sourceText,
-        targetLangName
+        targetLanguageName
       );
 
       console.log('Translation API result:', result);
@@ -109,15 +101,7 @@ export default function TextTranslatorScreen({ navigation }) {
 
       setTranslatedText(result.translatedText);
       setIsTranslating(false);
-
-      // Navigate to result screen
-      navigation.navigate('TranslationResult', {
-        originalText: sourceText,
-        translatedText: result.translatedText,
-        sourceLang: sourceLangName,
-        targetLang: targetLangName,
-        mode: 'text'
-      });
+      setShowResult(true); // Show result inline instead of navigating
     } catch (error) {
       setIsTranslating(false);
       console.error('Translation error:', error);
@@ -134,14 +118,15 @@ export default function TextTranslatorScreen({ navigation }) {
     }
   };
 
-  const selectTargetLanguage = (lang) => {
-    if (lang.code === 'auto') {
-      Alert.alert('Invalid Selection', 'Target language cannot be Auto Detect');
-      return;
-    }
-    setTargetLang(lang.code);
-    setTargetLangName(lang.name);
-    setShowTargetPicker(false);
+  const handleTryAgain = () => {
+    setShowResult(false);
+    setSourceText('');
+    setTranslatedText('');
+  };
+
+  const handleCopyText = (text, label) => {
+    Clipboard.setString(text);
+    Alert.alert('Copied', `${label} copied to clipboard`);
   };
 
   return (
@@ -158,9 +143,15 @@ export default function TextTranslatorScreen({ navigation }) {
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.languageSelector}>
-            <View style={styles.languageButton}>
-              <Text style={styles.languageText}>🌐 Auto Detect</Text>
-            </View>
+            <TouchableOpacity
+              style={styles.languageButton}
+              onPress={() => setShowSourcePicker(true)}
+            >
+              <Text style={styles.languageText}>
+                {SOURCE_LANGUAGES.find(l => l.code === sourceLang)?.flag} {SOURCE_LANGUAGES.find(l => l.code === sourceLang)?.name}
+              </Text>
+              <Ionicons name="chevron-down" size={16} color="#5B67F5" />
+            </TouchableOpacity>
 
             <View style={styles.arrowContainer}>
               <Ionicons name="arrow-forward" size={28} color="#5B67F5" />
@@ -170,33 +161,100 @@ export default function TextTranslatorScreen({ navigation }) {
               style={styles.languageButton}
               onPress={() => setShowTargetPicker(true)}
             >
-              <Text style={styles.languageText}>{targetLangName}</Text>
+              <Text style={styles.languageText}>
+                {TARGET_LANGUAGES.find(l => l.code === targetLang)?.flag} {TARGET_LANGUAGES.find(l => l.code === targetLang)?.name}
+              </Text>
               <Ionicons name="chevron-down" size={16} color="#5B67F5" />
             </TouchableOpacity>
           </View>
 
-          <View style={styles.inputCard}>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Type anything..."
-              placeholderTextColor="#999"
-              multiline
-              value={sourceText}
-              onChangeText={setSourceText}
-            />
-          </View>
+          {showResult ? (
+            // Show translation result
+            <View style={styles.resultContainer}>
+              <View style={styles.resultCard}>
+                <View style={styles.labelContainer}>
+                  <Text style={styles.resultLabel}>Original</Text>
+                  <Text style={styles.languageLabel}>
+                    ({SOURCE_LANGUAGES.find(l => l.code === sourceLang)?.name})
+                  </Text>
+                </View>
+                <ScrollView 
+                  style={styles.resultTextContainer}
+                  nestedScrollEnabled={true}
+                  showsVerticalScrollIndicator={true}
+                >
+                  <Text style={styles.resultText}>{sourceText}</Text>
+                </ScrollView>
+                <TouchableOpacity
+                  style={styles.copyButton}
+                  onPress={() => handleCopyText(sourceText, 'Original text')}
+                >
+                  <Ionicons name="copy-outline" size={20} color="#5B67F5" />
+                  <Text style={styles.copyButtonText}>Copy</Text>
+                </TouchableOpacity>
+              </View>
 
-          <TouchableOpacity
-            style={[styles.translateButton, isTranslating && styles.translateButtonDisabled]}
-            onPress={handleTranslate}
-            disabled={isTranslating || !sourceText.trim()}
-          >
-            {isTranslating ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.translateButtonText}>Translate Text</Text>
-            )}
-          </TouchableOpacity>
+              <View style={styles.arrowContainer}>
+                <Ionicons name="arrow-down" size={24} color="#5B67F5" />
+              </View>
+
+              <View style={[styles.resultCard, styles.translatedCard]}>
+                <View style={styles.labelContainer}>
+                  <Text style={[styles.resultLabel, { color: '#fff', opacity: 0.8 }]}>Translation</Text>
+                  <Text style={[styles.languageLabel, { color: '#fff', opacity: 0.7 }]}>
+                    ({TARGET_LANGUAGES.find(l => l.code === targetLang)?.name})
+                  </Text>
+                </View>
+                <ScrollView 
+                  style={styles.resultTextContainer}
+                  nestedScrollEnabled={true}
+                  showsVerticalScrollIndicator={true}
+                >
+                  <Text style={styles.translatedText}>{translatedText}</Text>
+                </ScrollView>
+                <TouchableOpacity
+                  style={[styles.copyButton, styles.copyButtonWhite]}
+                  onPress={() => handleCopyText(translatedText, 'Translation')}
+                >
+                  <Ionicons name="copy-outline" size={20} color="#fff" />
+                  <Text style={[styles.copyButtonText, { color: '#fff' }]}>Copy</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={styles.tryAgainButton}
+                onPress={handleTryAgain}
+              >
+                <Ionicons name="refresh" size={24} color="#fff" />
+                <Text style={styles.tryAgainText}>Translate Again</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              <View style={styles.inputCard}>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Type anything..."
+                  placeholderTextColor="#999"
+                  multiline
+                  value={sourceText}
+                  onChangeText={setSourceText}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[styles.translateButton, isTranslating && styles.translateButtonDisabled]}
+                onPress={handleTranslate}
+                disabled={isTranslating || !sourceText.trim()}
+              >
+                {isTranslating ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.translateButtonText}>Translate Text</Text>
+                )}
+              </TouchableOpacity>
+            </>
+          )}
 
           <View style={styles.methodsGrid}>
             <TouchableOpacity 
@@ -268,13 +326,63 @@ export default function TextTranslatorScreen({ navigation }) {
           </View>
         </ScrollView>
 
+        {/* Source Language Picker Modal */}
+        <Modal
+          visible={showSourcePicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowSourcePicker(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowSourcePicker(false)}
+          >
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Source Language</Text>
+                <TouchableOpacity onPress={() => setShowSourcePicker(false)}>
+                  <Ionicons name="close" size={28} color="#333" />
+                </TouchableOpacity>
+              </View>
+              <ScrollView>
+                {SOURCE_LANGUAGES.map((lang) => (
+                  <TouchableOpacity
+                    key={lang.code}
+                    style={[
+                      styles.languageOption,
+                      sourceLang === lang.code && styles.languageOptionActive
+                    ]}
+                    onPress={() => {
+                      setSourceLang(lang.code);
+                      setShowSourcePicker(false);
+                    }}
+                  >
+                    <Text style={styles.languageFlag}>{lang.flag}</Text>
+                    <Text style={[
+                      styles.languageOptionText,
+                      sourceLang === lang.code && styles.languageOptionTextActive
+                    ]}>
+                      {lang.name}
+                    </Text>
+                    {sourceLang === lang.code && (
+                      <Ionicons name="checkmark" size={24} color="#5B67F5" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+
+        {/* Target Language Picker Modal */}
         <Modal
           visible={showTargetPicker}
           transparent
           animationType="slide"
           onRequestClose={() => setShowTargetPicker(false)}
         >
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.modalOverlay}
             activeOpacity={1}
             onPress={() => setShowTargetPicker(false)}
@@ -287,14 +395,17 @@ export default function TextTranslatorScreen({ navigation }) {
                 </TouchableOpacity>
               </View>
               <ScrollView>
-                {LANGUAGES.filter(l => l.code !== 'auto').map((lang) => (
+                {TARGET_LANGUAGES.map((lang) => (
                   <TouchableOpacity
                     key={lang.code}
                     style={[
                       styles.languageOption,
                       targetLang === lang.code && styles.languageOptionActive
                     ]}
-                    onPress={() => selectTargetLanguage(lang)}
+                    onPress={() => {
+                      setTargetLang(lang.code);
+                      setShowTargetPicker(false);
+                    }}
                   >
                     <Text style={styles.languageFlag}>{lang.flag}</Text>
                     <Text style={[
@@ -674,5 +785,94 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#999',
     textAlign: 'center',
+  },
+  resultContainer: {
+    marginBottom: 20,
+  },
+  resultCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    marginVertical: 10,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  translatedCard: {
+    backgroundColor: '#5B67F5',
+  },
+  labelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  resultLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#999',
+    textTransform: 'uppercase',
+  },
+  languageLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 8,
+    fontStyle: 'italic',
+  },
+  resultTextContainer: {
+    maxHeight: 150,
+  },
+  resultText: {
+    fontSize: 16,
+    color: '#333',
+    lineHeight: 24,
+  },
+  translatedText: {
+    fontSize: 18,
+    color: '#fff',
+    fontWeight: '600',
+    lineHeight: 28,
+  },
+  tryAgainButton: {
+    flexDirection: 'row',
+    backgroundColor: '#5B67F5',
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    alignSelf: 'center',
+    elevation: 5,
+    shadowColor: '#5B67F5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  tryAgainText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    marginLeft: 10,
+  },
+  copyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 15,
+    backgroundColor: '#f0f4ff',
+    marginTop: 10,
+  },
+  copyButtonWhite: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  copyButtonText: {
+    fontSize: 14,
+    color: '#5B67F5',
+    fontWeight: '600',
+    marginLeft: 6,
   },
 });

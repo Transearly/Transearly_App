@@ -12,22 +12,12 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import BottomNavigation from '../components/BottomNavigation';
-
-const LANGUAGES = [
-  { code: 'vi', name: 'Vietnamese', flag: '🇻🇳' },
-  { code: 'en', name: 'English', flag: '🇬🇧' },
-  { code: 'es', name: 'Spanish', flag: '🇪🇸' },
-  { code: 'fr', name: 'French', flag: '🇫🇷' },
-  { code: 'de', name: 'German', flag: '🇩🇪' },
-  { code: 'ja', name: 'Japanese', flag: '🇯🇵' },
-  { code: 'ko', name: 'Korean', flag: '🇰🇷' },
-  { code: 'zh', name: 'Chinese', flag: '🇨🇳' },
-];
+import { TARGET_LANGUAGES, getLanguageName } from '../constants/languages';
 
 export default function CameraTranslateScreen({ navigation }) {
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState('back');
-  const [targetLang, setTargetLang] = useState('Vietnamese');
+  const [targetLang, setTargetLang] = useState('vi');
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
   const cameraRef = useRef(null);
 
@@ -38,7 +28,8 @@ export default function CameraTranslateScreen({ navigation }) {
           quality: 0.8,
           base64: false,
         });
-        navigation.navigate('ImageTranslate', { imageUri: photo.uri, targetLanguage: targetLang });
+        const targetLanguageName = getLanguageName(targetLang);
+        navigation.navigate('ImageTranslate', { imageUri: photo.uri, targetLanguage: targetLanguageName });
       } catch (error) {
         console.error('Error taking picture:', error);
         Alert.alert('Error', 'Failed to take picture');
@@ -55,7 +46,8 @@ export default function CameraTranslateScreen({ navigation }) {
       });
 
       if (!result.canceled) {
-        navigation.navigate('ImageTranslate', { imageUri: result.assets[0].uri, targetLanguage: targetLang });
+        const targetLanguageName = getLanguageName(targetLang);
+        navigation.navigate('ImageTranslate', { imageUri: result.assets[0].uri, targetLanguage: targetLanguageName });
       }
     } catch (error) {
       console.error('Error picking image:', error);
@@ -85,7 +77,7 @@ export default function CameraTranslateScreen({ navigation }) {
     );
   }
 
-  const selectedLanguage = LANGUAGES.find(lang => lang.name === targetLang) || LANGUAGES[0];
+  const selectedLanguage = TARGET_LANGUAGES.find(lang => lang.code === targetLang) || TARGET_LANGUAGES[0];
 
   return (
     <View style={styles.container}>
@@ -140,26 +132,26 @@ export default function CameraTranslateScreen({ navigation }) {
               </TouchableOpacity>
             </View>
             <ScrollView>
-              {LANGUAGES.map((lang) => (
+              {TARGET_LANGUAGES.map((lang) => (
                 <TouchableOpacity
                   key={lang.code}
                   style={[
                     styles.languageOption,
-                    targetLang === lang.name && styles.languageOptionActive
+                    targetLang === lang.code && styles.languageOptionActive
                   ]}
                   onPress={() => {
-                    setTargetLang(lang.name);
+                    setTargetLang(lang.code);
                     setShowLanguagePicker(false);
                   }}
                 >
                   <Text style={styles.languageFlag}>{lang.flag}</Text>
                   <Text style={[
                     styles.languageOptionText,
-                    targetLang === lang.name && styles.languageOptionTextActive
+                    targetLang === lang.code && styles.languageOptionTextActive
                   ]}>
                     {lang.name}
                   </Text>
-                  {targetLang === lang.name && (
+                  {targetLang === lang.code && (
                     <Ionicons name="checkmark" size={24} color="#5B67F5" />
                   )}
                 </TouchableOpacity>

@@ -69,7 +69,7 @@ export default function TranslationResultScreen({ navigation, route }) {
   };
 
   const copyToClipboard = async () => {
-    const textToCopy = showOriginal ? originalText : translatedText;
+    const textToCopy = showOriginalText ? originalText : translatedText;
     await Clipboard.setStringAsync(textToCopy);
     Alert.alert('Copied', 'Text copied to clipboard');
   };
@@ -269,7 +269,7 @@ export default function TranslationResultScreen({ navigation, route }) {
           </>
         )}
 
-        {!showOverlay && (
+        {mode !== 'image' && (
           <>
             {/* Original Text Section */}
             {originalText && originalText.trim() !== '' && (
