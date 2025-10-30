@@ -38,18 +38,18 @@
 
 ### Bước 1: Cài đặt dependencies
 
-\`\`\`powershell
+```powershell
 cd mobile-app
 npm install
-\`\`\`
+```
 
 ### Bước 2: Chạy ứng dụng
 
 #### Chạy với Expo Go (khuyến nghị cho development)
 
-\`\`\`powershell
+``` powershell
 npm start
-\`\`\`
+```
 
 Quét QR code bằng:
 - **iOS**: Mở Camera app và quét QR code
@@ -57,25 +57,25 @@ Quét QR code bằng:
 
 #### Chạy trên Android emulator
 
-\`\`\`powershell
+```powershell
 npm run android
-\`\`\`
+```
 
 #### Chạy trên iOS simulator (chỉ trên macOS)
 
-\`\`\`powershell
+```powershell
 npm run ios
-\`\`\`
+```
 
 #### Chạy trên web browser
 
-\`\`\`powershell
+```powershell
 npm run web
-\`\`\`
+```
 
 ## 📁 Cấu trúc thư mục
 
-\`\`\`
+```
 mobile-app/
 ├── App.js                          # Entry point chính
 ├── index.js                        # Root component registration
@@ -93,7 +93,7 @@ mobile-app/
     │   └── TextTranslatorScreen.js
     ├── components/                 # Reusable components (future)
     └── assets/                     # Images, fonts, etc.
-\`\`\`
+```
 
 ## 🛠 Technology Stack
 
@@ -108,13 +108,13 @@ mobile-app/
 
 ## 🎯 Navigation Flow
 
-\`\`\`
+```
 VoiceRecording (Home)
   ├─> TranslationDiscovery
   │     └─> SentenceChallenge
   ├─> TranslationResult
   └─> TextTranslator
-\`\`\`
+```
 
 ## 📝 Các bước tiếp theo
 
@@ -141,23 +141,23 @@ VoiceRecording (Home)
 ## 🐛 Troubleshooting
 
 ### Lỗi "Unable to resolve module"
-\`\`\`powershell
+```powershell
 rm -rf node_modules
 npm install
 npm start -- --reset-cache
-\`\`\`
+```
 
 ### Lỗi Expo Go không kết nối
 - Đảm bảo máy tính và điện thoại cùng WiFi
 - Thử chuyển sang tunnel mode: \`npm start -- --tunnel\`
 
 ### Lỗi Android build
-\`\`\`powershell
+```powershell
 cd android
 ./gradlew clean
 cd ..
 npm run android
-\`\`\`
+```
 
 ## 📄 License
 
