@@ -63,6 +63,7 @@ export default function ImageTranslateScreen({ route, navigation }) {
 
       const result = await translationAPI.translateImage(imageFile, targetLang);
       setIsProcessing(false);
+      console.log('Translation result segments:', JSON.stringify(result.segments, null, 2));
       setTranslatedSegments(result.segments || []);
     } catch (error) {
       setIsProcessing(false);
@@ -144,6 +145,17 @@ export default function ImageTranslateScreen({ route, navigation }) {
           let absY = (y / 100) * effectiveHeight + offsetY;
           const absWidth = (width / 100) * effectiveWidth;
           const absHeight = (height / 100) * effectiveHeight;
+
+          // Debug log
+          if (index === 0) {
+            console.log('=== Bounding Box Debug ===');
+            console.log('Original image:', originalImageWidth, 'x', originalImageHeight);
+            console.log('Rendered container:', containerWidth, 'x', containerHeight);
+            console.log('Effective size:', effectiveWidth, 'x', effectiveHeight);
+            console.log('Offset:', offsetX, offsetY);
+            console.log('Segment position %:', { x, y, width, height });
+            console.log('Absolute position:', { absX, absY, absWidth, absHeight });
+          }
 
           return (
             <TouchableOpacity
@@ -317,14 +329,14 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#5B67F5',
     borderRadius: 16,
-    overflow: 'hidden', // ✨ cắt ảnh trong khung
+    overflow: 'hidden',
     backgroundColor: '#000',
     position: 'relative',
   },
   image: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
+    resizeMode: 'contain', // Hiển thị full image không bị crop
   },
 
   // ==== Detected text segments (highlight text vùng OCR) ====
